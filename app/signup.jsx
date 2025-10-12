@@ -11,6 +11,7 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     try {
+      // 1️⃣ Create the user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -18,13 +19,14 @@ export default function SignUpScreen() {
       );
       const user = userCredential.user;
 
+      // 2️⃣ Create a Firestore document for the user
       await setDoc(doc(db, "users", user.uid), {
         email: user.email,
-        messages: [],
+        messages: [], // empty array to store chat messages later
       });
 
       Alert.alert("Success", "Account created!");
-      router.push("/signin");
+      router.replace("/signin"); // redirect to login
     } catch (error) {
       Alert.alert("Registration failed", error.message);
     }

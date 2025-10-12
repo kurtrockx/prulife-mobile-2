@@ -9,8 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../firebaseConfig";
-import { doc, updateDoc, onSnapshot, arrayUnion } from "firebase/firestore";
+import { doc, updateDoc, onSnapshot, arrayUnion, getDoc } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { router } from "expo-router";
 
@@ -54,12 +55,46 @@ export default function ChatScreen() {
     return unsubscribe;
   }, [userRef]);
 
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split("T")[0]; // "YYYY-MM-DD"
+  };
+
   const sendMessage = async () => {
     if (message.trim() === "") return;
+
+    const today = getTodayDate();
+
+    // Add user message
     await updateDoc(userRef, {
-      messages: arrayUnion({ createdAt: Date.now(), message, sender: "user" }),
+      messages: arrayUnion({
+        createdAt: Date.now(),
+        message,
+        sender: "user",
+        date: today,
+      }),
     });
+
     setMessage("");
+
+    // Auto-reply only if no admin message exists today
+    const snap = await getDoc(userRef);
+    const messagesData = snap.exists() ? snap.data().messages || [] : [];
+
+    const adminRepliedToday = messagesData.some(
+      (msg) => msg.sender === "admin" && msg.date === today
+    );
+
+    if (!adminRepliedToday) {
+      await updateDoc(userRef, {
+        messages: arrayUnion({
+          createdAt: Date.now(),
+          message: "Hi! This is an automated admin reply.",
+          sender: "admin",
+          date: today,
+        }),
+      });
+    }
   };
 
   const sendAdminReply = async () => {
@@ -78,48 +113,53 @@ export default function ChatScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-    >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Chat</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      >
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Chat</Text>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
 
-      <FlatList
-        contentContainerStyle={{ paddingVertical: 10 }}
-        data={messages.sort((a, b) => a.createdAt - b.createdAt)}
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item }) => <MessageBubble message={item} />}
-      />
-
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type a message..."
-          onChangeText={setMessage}
-          value={message}
-          placeholderTextColor="#888"
+        <FlatList
+          contentContainerStyle={{ paddingVertical: 10 }}
+          data={messages.sort((a, b) => a.createdAt - b.createdAt)}
+          keyExtractor={(item, index) => index.toString()}
+          renderItem={({ item }) => <MessageBubble message={item} />}
         />
-        <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
-          <Text style={styles.sendText}>Send</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.replyBtn} onPress={sendAdminReply}>
-          <Text style={styles.replyText}>Auto Reply</Text>
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.input}
+            placeholder="Type a message..."
+            onChangeText={setMessage}
+            value={message}
+            placeholderTextColor="#888"
+          />
+          <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
+            <Text style={styles.sendText}>Send</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.replyBtn} onPress={sendAdminReply}>
+            <Text style={styles.replyText}>Auto Reply</Text>
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
     flex: 1,
     backgroundColor: "#F6F6F6",
+  },
+  container: {
+    flex: 1,
   },
   header: {
     height: 60,
