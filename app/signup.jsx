@@ -62,6 +62,7 @@ export default function SignUpScreen() {
         email: user.email,
         createdAt: new Date().toISOString(),
         messages: [],
+        status: "pending",
       });
 
       Alert.alert("Success", "Account created!");
