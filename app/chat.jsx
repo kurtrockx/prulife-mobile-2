@@ -1,5 +1,4 @@
-// app/chat.jsx
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   TextInput,
@@ -20,8 +19,9 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
-import { useRouter } from "expo-router";
+import { router } from "expo-router";
 
+// Message bubble component
 const MessageBubble = ({ message }) => {
   const isUser = message.sender === "user";
   return (
@@ -46,10 +46,10 @@ const MessageBubble = ({ message }) => {
 };
 
 export default function ChatScreen() {
-  const router = useRouter();
   const user = auth.currentUser;
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
+  const flatListRef = useRef(null); // ✅ Ref for FlatList
 
   const userRef = doc(db, "users", user.uid);
 
@@ -62,10 +62,20 @@ export default function ChatScreen() {
     return unsubscribe;
   }, [userRef]);
 
-  const getTodayDate = () => new Date().toISOString().split("T")[0];
+  // Scroll to bottom whenever messages change
+  useEffect(() => {
+    if (messages.length > 0) {
+      flatListRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [messages]);
+
+  const getTodayDate = () => {
+    const today = new Date();
+    return today.toISOString().split("T")[0]; // "YYYY-MM-DD"
+  };
 
   const sendMessage = async () => {
-    if (!message.trim()) return;
+    if (message.trim() === "") return;
 
     const today = getTodayDate();
 
@@ -111,7 +121,7 @@ export default function ChatScreen() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    router.replace("/signin");
+    router.push("/signin");
   };
 
   return (
@@ -129,6 +139,7 @@ export default function ChatScreen() {
         </View>
 
         <FlatList
+          ref={flatListRef} // ✅ Attach ref here
           contentContainerStyle={{ paddingVertical: 10 }}
           data={messages.sort((a, b) => a.createdAt - b.createdAt)}
           keyExtractor={(item, index) => index.toString()}
@@ -156,11 +167,11 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F6F6F6" },
+  safeArea: { flex: 1, backgroundColor: "white" },
   container: { flex: 1 },
   header: {
     height: 60,
-    backgroundColor: "#007AFF",
+    backgroundColor: "#000000",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -168,7 +179,7 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "ios" ? 20 : 0,
   },
   headerTitle: { color: "white", fontSize: 20, fontWeight: "bold" },
-  logoutBtn: { padding: 5, borderRadius: 6, backgroundColor: "#005BBB" },
+  logoutBtn: { padding: 5, borderRadius: 6, backgroundColor: "#d19315" },
   logoutText: { color: "white", fontWeight: "600" },
   bubble: {
     maxWidth: "75%",
@@ -181,10 +192,10 @@ const styles = StyleSheet.create({
     shadowRadius: 1.5,
     elevation: 2,
   },
-  userBubble: { backgroundColor: "#DCF8C6", borderTopRightRadius: 0 },
-  adminBubble: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 0 },
-  userText: { color: "#000" },
-  adminText: { color: "#333" },
+  userBubble: { backgroundColor: "#460809", borderTopRightRadius: 0 },
+  adminBubble: { backgroundColor: "#dbdbdb", borderTopLeftRadius: 0 },
+  userText: { color: "#ffffff" },
+  adminText: { color: "#000000" },
   timestamp: {
     fontSize: 10,
     color: "#666",
