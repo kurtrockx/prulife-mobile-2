@@ -14,7 +14,15 @@
       },
       "oauth_client": [
         {
-          "client_id": "732043751595-vbc2o481at3abcbcl4tja39s8i4mp4o2.apps.googleusercontent.com",
+          "client_id": "732043751595-csmf6dpskci245pe6erauuom1bond338.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.prulife.firebase",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "732043751595-g311ubq56d2csht0ac39iir9a7bk9aui.apps.googleusercontent.com",
           "client_type": 3
         }
       ],
@@ -27,11 +35,11 @@
         "appinvite_service": {
           "other_platform_oauth_client": [
             {
-              "client_id": "732043751595-vbc2o481at3abcbcl4tja39s8i4mp4o2.apps.googleusercontent.com",
+              "client_id": "732043751595-5johb8js4n6vbgrmpuei47klbofbl4ig.apps.googleusercontent.com",
               "client_type": 3
             },
             {
-              "client_id": "732043751595-m6orolm3rju7fl0ot516phvvtjkpn6h6.apps.googleusercontent.com",
+              "client_id": "732043751595-gffb8o2hh5j00b0vcuusdoploqe3i5su.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
                 "bundle_id": "com.prulife.firebase"

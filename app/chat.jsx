@@ -1,3 +1,4 @@
+// app/chat.jsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -11,11 +12,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../firebaseConfig";
-import { doc, updateDoc, onSnapshot, arrayUnion, getDoc } from "firebase/firestore";
+import {
+  doc,
+  updateDoc,
+  onSnapshot,
+  arrayUnion,
+  getDoc,
+} from "firebase/firestore";
 import { signOut } from "firebase/auth";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 
-// Component for each message bubble
 const MessageBubble = ({ message }) => {
   const isUser = message.sender === "user";
   return (
@@ -40,6 +46,7 @@ const MessageBubble = ({ message }) => {
 };
 
 export default function ChatScreen() {
+  const router = useRouter();
   const user = auth.currentUser;
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
@@ -55,17 +62,13 @@ export default function ChatScreen() {
     return unsubscribe;
   }, [userRef]);
 
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toISOString().split("T")[0]; // "YYYY-MM-DD"
-  };
+  const getTodayDate = () => new Date().toISOString().split("T")[0];
 
   const sendMessage = async () => {
-    if (message.trim() === "") return;
+    if (!message.trim()) return;
 
     const today = getTodayDate();
 
-    // Add user message
     await updateDoc(userRef, {
       messages: arrayUnion({
         createdAt: Date.now(),
@@ -77,7 +80,6 @@ export default function ChatScreen() {
 
     setMessage("");
 
-    // Auto-reply only if no admin message exists today
     const snap = await getDoc(userRef);
     const messagesData = snap.exists() ? snap.data().messages || [] : [];
 
@@ -109,7 +111,7 @@ export default function ChatScreen() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    router.push("/signin");
+    router.replace("/signin");
   };
 
   return (
@@ -154,13 +156,8 @@ export default function ChatScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#F6F6F6",
-  },
-  container: {
-    flex: 1,
-  },
+  safeArea: { flex: 1, backgroundColor: "#F6F6F6" },
+  container: { flex: 1 },
   header: {
     height: 60,
     backgroundColor: "#007AFF",
@@ -170,20 +167,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingTop: Platform.OS === "ios" ? 20 : 0,
   },
-  headerTitle: {
-    color: "white",
-    fontSize: 20,
-    fontWeight: "bold",
-  },
-  logoutBtn: {
-    padding: 5,
-    borderRadius: 6,
-    backgroundColor: "#005BBB",
-  },
-  logoutText: {
-    color: "white",
-    fontWeight: "600",
-  },
+  headerTitle: { color: "white", fontSize: 20, fontWeight: "bold" },
+  logoutBtn: { padding: 5, borderRadius: 6, backgroundColor: "#005BBB" },
+  logoutText: { color: "white", fontWeight: "600" },
   bubble: {
     maxWidth: "75%",
     padding: 10,
@@ -195,20 +181,10 @@ const styles = StyleSheet.create({
     shadowRadius: 1.5,
     elevation: 2,
   },
-  userBubble: {
-    backgroundColor: "#DCF8C6",
-    borderTopRightRadius: 0,
-  },
-  adminBubble: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 0,
-  },
-  userText: {
-    color: "#000",
-  },
-  adminText: {
-    color: "#333",
-  },
+  userBubble: { backgroundColor: "#DCF8C6", borderTopRightRadius: 0 },
+  adminBubble: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 0 },
+  userText: { color: "#000" },
+  adminText: { color: "#333" },
   timestamp: {
     fontSize: 10,
     color: "#666",
@@ -239,18 +215,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginRight: 5,
   },
-  sendText: {
-    color: "white",
-    fontWeight: "600",
-  },
+  sendText: { color: "white", fontWeight: "600" },
   replyBtn: {
     backgroundColor: "#34C759",
     borderRadius: 20,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  replyText: {
-    color: "white",
-    fontWeight: "600",
-  },
+  replyText: { color: "white", fontWeight: "600" },
 });

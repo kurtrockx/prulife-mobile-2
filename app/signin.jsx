@@ -1,17 +1,18 @@
+// app/signin.jsx
 import React, { useState } from "react";
 import { View, TextInput, Button, Alert, StyleSheet } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebaseConfig";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 
 export default function SignInScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const router = useRouter();
 
   const handleSignIn = async () => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      console.log("Current user:", auth.currentUser);
       router.replace("/chat"); // Navigate to chat
     } catch (error) {
       Alert.alert("Login failed", error.message);
@@ -23,16 +24,16 @@ export default function SignInScreen() {
       <TextInput
         style={styles.input}
         placeholder="Email"
-        onChangeText={setEmail}
         value={email}
+        onChangeText={setEmail}
         autoCapitalize="none"
         keyboardType="email-address"
       />
       <TextInput
         style={styles.input}
         placeholder="Password"
-        onChangeText={setPassword}
         value={password}
+        onChangeText={setPassword}
         secureTextEntry
       />
       <Button title="Sign In" onPress={handleSignIn} />

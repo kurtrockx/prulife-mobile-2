@@ -3,11 +3,12 @@ import { View, TextInput, Button, Alert, StyleSheet } from "react-native";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
-import { router } from "expo-router";
+import { useRouter } from "expo-router"; // ✅ useRouter hook
 
 export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const router = useRouter(); // ✅ initialize router
 
   const handleSignUp = async () => {
     try {
@@ -26,7 +27,7 @@ export default function SignUpScreen() {
       });
 
       Alert.alert("Success", "Account created!");
-      router.replace("/signin"); // redirect to login
+      router.replace("/signin"); // ✅ navigate to login
     } catch (error) {
       Alert.alert("Registration failed", error.message);
     }
