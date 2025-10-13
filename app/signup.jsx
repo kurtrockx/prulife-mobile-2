@@ -6,6 +6,8 @@ import {
   Platform,
   TouchableOpacity,
   Text,
+  ScrollView,
+  KeyboardAvoidingView,
 } from "react-native";
 import { TextInput, Button } from "react-native-paper";
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -26,12 +28,24 @@ export default function SignUpScreen() {
 
   const router = useRouter();
 
+  const validateForm = () => {
+    if (!fullname.trim()) return "Full Name is required";
+    if (!birthdate) return "Birthdate is required";
+    if (!contactNumber.trim()) return "Contact Number is required";
+    if (!occupation.trim()) return "Occupation is required";
+    if (!email.trim()) return "Email is required";
+    if (!password) return "Password is required";
+    if (password.length < 6) return "Password must be at least 6 characters";
+    if (password !== confirmPassword) return "Passwords do not match";
+    return null;
+  };
+
   const handleSignUp = async () => {
-    if (password !== confirmPassword) {
-      return Alert.alert("Error", "Passwords do not match");
-    }
+    const error = validateForm();
+    if (error) return Alert.alert("Validation Error", error);
 
     try {
+      // 1️⃣ Create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -39,25 +53,27 @@ export default function SignUpScreen() {
       );
       const user = userCredential.user;
 
+      // 2️⃣ Use uid as document ID
       await setDoc(doc(db, "users", user.uid), {
         fullname,
         birthdate: birthdate.toISOString(),
         contactNumber,
         occupation,
         email: user.email,
+        createdAt: new Date().toISOString(),
         messages: [],
       });
 
       Alert.alert("Success", "Account created!");
       router.replace("/signin");
-    } catch (error) {
-      Alert.alert("Registration failed", error.message);
+    } catch (err) {
+      Alert.alert("Registration Failed", err.message);
     }
   };
 
   const onChangeDate = (event, selectedDate) => {
     const currentDate = selectedDate || birthdate;
-    setShowDatePicker(Platform.OS === "ios"); // keep open on iOS
+    setShowDatePicker(Platform.OS === "ios");
     setBirthdate(currentDate);
   };
 
