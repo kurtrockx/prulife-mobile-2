@@ -8,6 +8,8 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Linking,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth, db } from "../firebaseConfig";
@@ -124,26 +126,62 @@ export default function ChatScreen() {
     router.push("/signin");
   };
 
+const handleOpenLink = async (url) => {
+  if (!url || typeof url !== "string") {
+    Alert.alert(
+      "No file found",
+      "The link is missing or invalid.",
+      user.pdfUrl
+    );
+    return;
+  }
+
+  try {
+    const supported = await Linking.canOpenURL(url);
+    if (supported) {
+      await Linking.openURL(url);
+    } else {
+      Alert.alert("Cannot open this link.");
+    }
+  } catch (error) {
+    Alert.alert("Error", "Something went wrong while opening the file.");
+    console.error("Link error:", error);
+  }
+};
+
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Chat</Text>
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+          <Text style={styles.logoutText}>Logout</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() =>
+            handleOpenLink(
+              "https://res.cloudinary.com/dsoetkfjz/raw/upload/v1760740693/yndrlnorbjgegmwe0og0"
+            )
+          }
+        >
+          <Text style={{ color: "blue", textDecorationLine: "underline" }}>
+            Download PDF
+          </Text>
+        </TouchableOpacity>{" "}
+      </View>
+
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Chat</Text>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
-        </View>
-
         <FlatList
-          ref={flatListRef} // ✅ Attach ref here
-          contentContainerStyle={{ paddingVertical: 10 }}
+          ref={flatListRef}
+          contentContainerStyle={{ padding: 10, flexGrow: 1 }}
           data={messages.sort((a, b) => a.createdAt - b.createdAt)}
           keyExtractor={(item, index) => index.toString()}
           renderItem={({ item }) => <MessageBubble message={item} />}
+          onContentSizeChange={() =>
+            flatListRef.current?.scrollToEnd({ animated: true })
+          }
         />
 
         <View style={styles.inputContainer}>
