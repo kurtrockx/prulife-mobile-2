@@ -6,8 +6,6 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
-  KeyboardAvoidingView,
-  ScrollView,
 } from "react-native";
 import { TextInput, Button } from "react-native-paper";
 import { createUserWithEmailAndPassword } from "firebase/auth";

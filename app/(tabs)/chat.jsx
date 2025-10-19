@@ -6,12 +6,13 @@ import {
   FlatList,
   Text,
   StyleSheet,
-  KeyboardAvoidingView,
   Platform,
-  Linking,
-  Alert,
+  KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { auth, db } from "../../firebaseConfig";
 import {
   doc,
@@ -20,19 +21,12 @@ import {
   arrayUnion,
   getDoc,
 } from "firebase/firestore";
-import { signOut } from "firebase/auth";
-import { router } from "expo-router";
 
-// Message bubble component
 const MessageBubble = ({ message }) => {
   const isUser = message.sender === "user";
   return (
     <View
-      style={[
-        styles.bubble,
-        isUser ? styles.userBubble : styles.adminBubble,
-        { alignSelf: isUser ? "flex-end" : "flex-start" },
-      ]}
+      style={[styles.bubble, isUser ? styles.userBubble : styles.adminBubble]}
     >
       <Text style={isUser ? styles.userText : styles.adminText}>
         {message.message}
@@ -51,9 +45,8 @@ export default function ChatScreen() {
   const user = auth.currentUser;
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const [pdfUrl, setPdfUrl] = useState(null); // ✅ Store PDF link
+  const [firstName, setFirstName] = useState("");
   const flatListRef = useRef(null);
-
   const userRef = doc(db, "users", user.uid);
 
   useEffect(() => {
@@ -61,26 +54,35 @@ export default function ChatScreen() {
       if (snapshot.exists()) {
         const data = snapshot.data();
         setMessages(data.messages || []);
-        setPdfUrl(data.pdfUrl || null); // ✅ Get PDF link from Firestore
+        if (data.fullname) setFirstName(data.fullname.split(" ")[0]);
       }
     });
     return unsubscribe;
   }, [userRef]);
 
-  // Scroll to bottom whenever messages change
   useEffect(() => {
-    if (messages.length > 0) {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }
+    flatListRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  const getTodayDate = () => {
-    const today = new Date();
-    return today.toISOString().split("T")[0]; // "YYYY-MM-DD"
-  };
+  useEffect(() => {
+    const keyboardWillShow = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => {
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
+      }
+    );
+
+    return () => {
+      keyboardWillShow.remove();
+    };
+  }, []);
+
+  const getTodayDate = () => new Date().toISOString().split("T")[0];
 
   const sendMessage = async () => {
-    if (message.trim() === "") return;
+    if (!message.trim()) return;
 
     const today = getTodayDate();
 
@@ -97,7 +99,6 @@ export default function ChatScreen() {
 
     const snap = await getDoc(userRef);
     const messagesData = snap.exists() ? snap.data().messages || [] : [];
-
     const adminRepliedToday = messagesData.some(
       (msg) => msg.sender === "admin" && msg.date === today
     );
@@ -114,83 +115,51 @@ export default function ChatScreen() {
     }
   };
 
-  const handleLogout = async () => {
-    await signOut(auth);
-    router.push("/signin");
-  };
-
-const handleOpenLink = async (url) => {
-  if (!url || typeof url !== "string") {
-    Alert.alert("No file found", "The PDF link is missing or invalid.");
-    return;
-  }
-
-  try {
-    // ✅ Ensure .pdf extension
-    let finalUrl = url;
-    if (!finalUrl.toLowerCase().endsWith(".pdf")) {
-      finalUrl += ".pdf";
-    }
-
-    const supported = await Linking.canOpenURL(finalUrl);
-    if (supported) {
-      await Linking.openURL(finalUrl);
-    } else {
-      Alert.alert("Download File", "The app cannot open this link directly. We'll try to rename and open it.");
-      // Open fallback — Cloudinary direct link for download
-      await Linking.openURL(finalUrl + "?dl=1");
-    }
-  } catch (error) {
-    Alert.alert("Error", "Something went wrong while opening the file.");
-    console.error("Link error:", error);
-  }
-};
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Chat</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* ✅ Dynamic Download PDF Link */}
-      <TouchableOpacity
-        disabled={!pdfUrl}
-        onPress={() => handleOpenLink(pdfUrl)}
-        style={{ opacity: pdfUrl ? 1 : 0.5, marginVertical: 8 }}
-      >
-        <Text style={{ color: "blue", textDecorationLine: "underline" }}>
-          {pdfUrl ? "Download PDF" : "No PDF Available"}
-        </Text>
-      </TouchableOpacity>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+      <Text style={styles.header}>Hi, {firstName}</Text>
 
       <KeyboardAvoidingView
-        style={styles.container}
+        style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0}
       >
-        <FlatList
-          ref={flatListRef}
-          contentContainerStyle={{ padding: 10, flexGrow: 1 }}
-          data={messages.sort((a, b) => a.createdAt - b.createdAt)}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item }) => <MessageBubble message={item} />}
-          onContentSizeChange={() =>
-            flatListRef.current?.scrollToEnd({ animated: true })
-          }
-        />
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <FlatList
+            ref={flatListRef}
+            data={messages.sort((a, b) => a.createdAt - b.createdAt)}
+            keyExtractor={(item, index) => item.id || index.toString()}
+            renderItem={({ item }) => <MessageBubble message={item} />}
+            contentContainerStyle={styles.messageList}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
+            onLayout={() =>
+              flatListRef.current?.scrollToEnd({ animated: false })
+            }
+          />
+        </TouchableWithoutFeedback>
 
         <View style={styles.inputContainer}>
           <TextInput
             style={styles.input}
             placeholder="Type a message..."
-            onChangeText={setMessage}
             value={message}
+            onChangeText={setMessage}
             placeholderTextColor="#888"
+            multiline
+            maxLength={1000}
+            returnKeyType="default"
+            blurOnSubmit={false}
           />
-          <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
-            <Text style={styles.sendText}>Send</Text>
+          <TouchableOpacity
+            style={[styles.sendBtn, !message.trim() && styles.sendBtnDisabled]}
+            onPress={sendMessage}
+            disabled={!message.trim()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="send" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -199,35 +168,35 @@ const handleOpenLink = async (url) => {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "white" },
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: "#fff" },
+  flex: { flex: 1 },
   header: {
-    height: 60,
-    backgroundColor: "#000000",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 15,
-    paddingTop: Platform.OS === "ios" ? 20 : 0,
+    padding: 16,
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#b30f1c",
+    textAlign: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
   },
-  headerTitle: { color: "white", fontSize: 20, fontWeight: "bold" },
-  logoutBtn: { padding: 5, borderRadius: 6, backgroundColor: "#d19315" },
-  logoutText: { color: "white", fontWeight: "600" },
-  bubble: {
-    maxWidth: "75%",
+  messageList: {
     padding: 10,
-    marginVertical: 4,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 1.5,
-    elevation: 2,
+    paddingBottom: 10,
+    flexGrow: 1,
   },
-  userBubble: { backgroundColor: "#460809", borderTopRightRadius: 0 },
-  adminBubble: { backgroundColor: "#dbdbdb", borderTopLeftRadius: 0 },
-  userText: { color: "#ffffff" },
-  adminText: { color: "#000000" },
+  bubble: { maxWidth: "75%", padding: 12, marginVertical: 4, borderRadius: 24 },
+  userBubble: {
+    backgroundColor: "#b30f1c",
+    alignSelf: "flex-end",
+    borderTopRightRadius: 0,
+  },
+  adminBubble: {
+    backgroundColor: "#f1f1f1",
+    alignSelf: "flex-start",
+    borderTopLeftRadius: 0,
+  },
+  userText: { color: "#fff", fontWeight: "500" },
+  adminText: { color: "#000", fontWeight: "500" },
   timestamp: {
     fontSize: 10,
     color: "#666",
@@ -237,32 +206,30 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     padding: 10,
-    backgroundColor: "#FFF",
-    alignItems: "center",
     borderTopWidth: 1,
     borderColor: "#E0E0E0",
+    alignItems: "center",
+    backgroundColor: "#fff",
   },
   input: {
     flex: 1,
-    backgroundColor: "#F1F1F1",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 24,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     fontSize: 16,
-    marginRight: 5,
+    marginRight: 8,
+    maxHeight: 100,
   },
   sendBtn: {
-    backgroundColor: "#007AFF",
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    marginRight: 5,
+    backgroundColor: "#b30f1c",
+    borderRadius: 24,
+    width: 44,
+    height: 44,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  sendText: { color: "white", fontWeight: "600" },
-  replyBtn: {
-    backgroundColor: "#34C759",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  sendBtnDisabled: {
+    opacity: 0.5,
   },
 });
