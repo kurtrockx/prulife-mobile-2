@@ -12,7 +12,7 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
 import {
   doc,
   updateDoc,
@@ -51,14 +51,17 @@ export default function ChatScreen() {
   const user = auth.currentUser;
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
-  const flatListRef = useRef(null); // ✅ Ref for FlatList
+  const [pdfUrl, setPdfUrl] = useState(null); // ✅ Store PDF link
+  const flatListRef = useRef(null);
 
   const userRef = doc(db, "users", user.uid);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(userRef, (snapshot) => {
       if (snapshot.exists()) {
-        setMessages(snapshot.data().messages || []);
+        const data = snapshot.data();
+        setMessages(data.messages || []);
+        setPdfUrl(data.pdfUrl || null); // ✅ Get PDF link from Firestore
       }
     });
     return unsubscribe;
@@ -111,16 +114,6 @@ export default function ChatScreen() {
     }
   };
 
-  const sendAdminReply = async () => {
-    await updateDoc(userRef, {
-      messages: arrayUnion({
-        createdAt: Date.now(),
-        message: "Hi! This is an automated admin reply.",
-        sender: "admin",
-      }),
-    });
-  };
-
   const handleLogout = async () => {
     await signOut(auth);
     router.push("/signin");
@@ -128,20 +121,24 @@ export default function ChatScreen() {
 
 const handleOpenLink = async (url) => {
   if (!url || typeof url !== "string") {
-    Alert.alert(
-      "No file found",
-      "The link is missing or invalid.",
-      user.pdfUrl
-    );
+    Alert.alert("No file found", "The PDF link is missing or invalid.");
     return;
   }
 
   try {
-    const supported = await Linking.canOpenURL(url);
+    // ✅ Ensure .pdf extension
+    let finalUrl = url;
+    if (!finalUrl.toLowerCase().endsWith(".pdf")) {
+      finalUrl += ".pdf";
+    }
+
+    const supported = await Linking.canOpenURL(finalUrl);
     if (supported) {
-      await Linking.openURL(url);
+      await Linking.openURL(finalUrl);
     } else {
-      Alert.alert("Cannot open this link.");
+      Alert.alert("Download File", "The app cannot open this link directly. We'll try to rename and open it.");
+      // Open fallback — Cloudinary direct link for download
+      await Linking.openURL(finalUrl + "?dl=1");
     }
   } catch (error) {
     Alert.alert("Error", "Something went wrong while opening the file.");
@@ -156,18 +153,18 @@ const handleOpenLink = async (url) => {
         <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() =>
-            handleOpenLink(
-              "https://res.cloudinary.com/dsoetkfjz/raw/upload/v1760740693/yndrlnorbjgegmwe0og0"
-            )
-          }
-        >
-          <Text style={{ color: "blue", textDecorationLine: "underline" }}>
-            Download PDF
-          </Text>
-        </TouchableOpacity>{" "}
       </View>
+
+      {/* ✅ Dynamic Download PDF Link */}
+      <TouchableOpacity
+        disabled={!pdfUrl}
+        onPress={() => handleOpenLink(pdfUrl)}
+        style={{ opacity: pdfUrl ? 1 : 0.5, marginVertical: 8 }}
+      >
+        <Text style={{ color: "blue", textDecorationLine: "underline" }}>
+          {pdfUrl ? "Download PDF" : "No PDF Available"}
+        </Text>
+      </TouchableOpacity>
 
       <KeyboardAvoidingView
         style={styles.container}
@@ -194,9 +191,6 @@ const handleOpenLink = async (url) => {
           />
           <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
             <Text style={styles.sendText}>Send</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.replyBtn} onPress={sendAdminReply}>
-            <Text style={styles.replyText}>Auto Reply</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -271,5 +265,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  replyText: { color: "white", fontWeight: "600" },
 });

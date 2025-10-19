@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { TextInput, Button } from "react-native-paper";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "../firebaseConfig";
+import { auth, db } from "../../firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";

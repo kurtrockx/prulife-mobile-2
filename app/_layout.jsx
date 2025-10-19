@@ -1,11 +1,6 @@
 // app/_layout.jsx
-import { Stack } from "expo-router";
+import { Slot } from "expo-router";
 
 export default function RootLayout() {
-  return (
-    <Stack
-      screenOptions={{ headerShown: false }}
-      initialRouteName="index" // default landing page
-    />
-  );
+  return <Slot />; // Renders the appropriate group layout
 }

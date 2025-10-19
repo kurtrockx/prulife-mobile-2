@@ -1,7 +1,7 @@
 // app/index.jsx
 import { useEffect } from "react";
 import { useRouter } from "expo-router";
-import { auth } from "../firebaseConfig";
+import { auth } from "../../firebaseConfig";
 
 export default function Index() {
   const router = useRouter();
@@ -9,14 +9,14 @@ export default function Index() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
-        router.replace("/chat"); // Already logged in
+        router.replace("/chat"); // Must match exact tabs route
       } else {
-        router.replace("/signin"); // Not logged in
+        router.replace("/signin"); // Must match auth route
       }
     });
 
-    return unsubscribe; // Cleanup
+    return unsubscribe;
   }, [router]);
-
+  
   return null; // Nothing to render
 }
