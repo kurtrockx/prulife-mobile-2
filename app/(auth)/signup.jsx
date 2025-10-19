@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import {
   View,
+  Text,
   StyleSheet,
   Alert,
-  Platform,
   TouchableOpacity,
-  Text,
-  ScrollView,
+  Platform,
   KeyboardAvoidingView,
+  ScrollView,
 } from "react-native";
 import { TextInput, Button } from "react-native-paper";
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -15,6 +15,20 @@ import { auth, db } from "../../firebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+
+// Reusable rounded TextInput
+const RoundedInput = ({ label, value, onChangeText, ...props }) => (
+  <TextInput
+    label={label}
+    value={value}
+    onChangeText={onChangeText}
+    mode="outlined"
+    theme={{ roundness: 50 }}
+    style={styles.input}
+    {...props}
+  />
+);
 
 export default function SignUpScreen() {
   const [fullname, setFullname] = useState("");
@@ -45,7 +59,6 @@ export default function SignUpScreen() {
     if (error) return Alert.alert("Validation Error", error);
 
     try {
-      // 1️⃣ Create Firebase Auth user
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -53,7 +66,6 @@ export default function SignUpScreen() {
       );
       const user = userCredential.user;
 
-      // 2️⃣ Use uid as document ID
       await setDoc(doc(db, "users", user.uid), {
         fullname,
         birthdate: birthdate.toISOString(),
@@ -79,146 +91,142 @@ export default function SignUpScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Register</Text>
-      <Text style={styles.subHeader}>Create your account</Text>
+    <KeyboardAwareScrollView
+      style={{ flex: 1, backgroundColor: "white" }}
+      contentContainerStyle={{ flexGrow: 1 }}
+      enableOnAndroid={true}
+      extraScrollHeight={Platform.OS === "ios" ? 0 : 80}
+      keyboardShouldPersistTaps="handled"
+      keyboardOpeningTime={0}
+    >
+      <View style={{ flex: 1, justifyContent: "center", padding: 20 }}>
+        <View style={{ width: "100%", maxWidth: 400, alignSelf: "center" }}>
+          <Text style={styles.header}>Register</Text>
+          <Text style={styles.subHeader}>Create your account</Text>
 
-      {/* Full Name */}
-      <TextInput
-        label="Full Name"
-        value={fullname}
-        onChangeText={setFullname}
-        mode="outlined"
-        theme={{ roundness: 50 }}
-        activeOutlineColor="black"
-        style={styles.input}
-      />
+          <RoundedInput
+            label="Full Name"
+            value={fullname}
+            onChangeText={setFullname}
+          />
 
-      {/* Birthdate */}
-      <TouchableOpacity onPress={() => setShowDatePicker(true)}>
-        <TextInput
-          label="Birthdate"
-          value={birthdate.toDateString()}
-          editable={false}
-          pointerEvents="none"
-          theme={{ roundness: 50 }}
-          mode="outlined"
-          activeOutlineColor="black"
-          style={styles.input}
-        />
-      </TouchableOpacity>
-      {showDatePicker && (
-        <DateTimePicker
-          value={birthdate}
-          mode="date"
-          display="calendar"
-          onChange={onChangeDate}
-          maximumDate={new Date()}
-        />
-      )}
+          <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+            <RoundedInput
+              label="Birthdate"
+              value={birthdate.toDateString()}
+              editable={false}
+              pointerEvents="none"
+            />
+          </TouchableOpacity>
 
-      {/* Contact Number */}
-      <TextInput
-        label="Contact Number"
-        value={contactNumber}
-        onChangeText={setContactNumber}
-        keyboardType="phone-pad"
-        theme={{ roundness: 50 }}
-        mode="outlined"
-        activeOutlineColor="black"
-        style={styles.input}
-      />
+          {showDatePicker && (
+            <DateTimePicker
+              value={birthdate}
+              mode="date"
+              display="calendar"
+              onChange={onChangeDate}
+              maximumDate={new Date()}
+            />
+          )}
 
-      {/* Occupation */}
-      <TextInput
-        label="Occupation"
-        value={occupation}
-        onChangeText={setOccupation}
-        mode="outlined"
-        theme={{ roundness: 50 }}
-        activeOutlineColor="black"
-        style={styles.input}
-      />
+          <RoundedInput
+            label="Contact Number"
+            value={contactNumber}
+            onChangeText={setContactNumber}
+            keyboardType="phone-pad"
+          />
 
-      {/* Email */}
-      <TextInput
-        label="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitaliz
-        theme={{ roundness: 50 }}
-        e="none"
-        keyboardType="email-address"
-        mode="outlined"
-        activeOutlineColor="black"
-        style={styles.input}
-      />
+          <RoundedInput
+            label="Occupation"
+            value={occupation}
+            onChangeText={setOccupation}
+          />
 
-      {/* Password */}
-      <TextInput
-        label="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        theme={{ roundness: 50 }}
-        mode="outlined"
-        activeOutlineColor="black"
-        style={styles.input}
-      />
+          <RoundedInput
+            label="Email"
+            value={email}
+            onChangeText={setEmail}
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
 
-      {/* Confirm Password */}
-      <TextInput
-        label="Confirm Password"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-        theme={{ roundness: 50 }}
-        mode="outlined"
-        activeOutlineColor="black"
-        style={styles.input}
-      />
+          <RoundedInput
+            label="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+          />
 
-      <Button mode="contained" onPress={handleSignUp} style={styles.button}>
-        Sign Up
-      </Button>
-      <Button onPress={() => router.push("/signin")} style={styles.linkButton}>
-        <Text style={styles.linkButtonText}>
-          Already have an account? <Text style={styles.signin}>Sign In</Text>
-        </Text>
-      </Button>
-    </View>
+          <RoundedInput
+            label="Confirm Password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry
+          />
+
+          <Button mode="contained" onPress={handleSignUp} style={styles.button}>
+            Sign Up
+          </Button>
+
+          <TouchableOpacity
+            onPress={() => router.push("/signin")}
+            style={styles.linkButton}
+          >
+            <Text style={styles.linkButtonText}>
+              Already have an account?{" "}
+              <Text style={styles.signin}>Sign In</Text>
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </KeyboardAwareScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    gap: 6,
-    padding: 20,
-    justifyContent: "center",
     backgroundColor: "white",
+  },
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: 20,
+  },
+  formContainer: {
+    width: "100%",
+    maxWidth: 400,
+    alignSelf: "center",
   },
   header: {
     textAlign: "center",
     fontSize: 32,
     fontWeight: "500",
+    marginBottom: 8,
   },
-  subHeader: {},
+  subHeader: {
+    textAlign: "center",
+    marginBottom: 20,
+    color: "#555",
+  },
   input: {
-    borderRadius: 50, // makes it fully rounded
+    marginBottom: 12,
     backgroundColor: "#fff",
-    paddingHorizontal: 10,
-    paddingVertical: 0,
   },
   button: {
     marginTop: 10,
-    marginHorizontal: "auto",
+    alignSelf: "center",
     width: "60%",
-    paddingVertical: 10,
     borderRadius: 24,
-    backgroundColor: "#450509",
+    backgroundColor: "#b30f1c",
+    paddingVertical: 10,
+  },
+  linkButton: {
+    marginTop: 12,
   },
   linkButtonText: {
     color: "black",
+    textAlign: "center",
   },
   signin: {
     color: "blue",
