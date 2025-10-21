@@ -49,8 +49,6 @@ export default function AnnouncementPage() {
         </View>
       </View>
 
-      <Text style={styles.sectionHeader}>📢 Announcements</Text>
-
       {/* 📜 Announcements List */}
       <FlatList
         data={announcements}
@@ -132,8 +130,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 5,
-    marginBottom: 8,
+    marginBottom: 16,
     gap: 14,
+    boxShadow: "0px 8px 6px rgba(0, 0, 0, 0.2)",
   },
   logo: {
     width: 80,
@@ -155,14 +154,6 @@ const styles = StyleSheet.create({
     color: "#fff9",
     marginTop: -2,
   },
-  sectionHeader: {
-    fontSize: 20,
-    fontWeight: "700",
-    textAlign: "center",
-    marginVertical: 16,
-    color: "#b30f1c",
-  },
-
   /* 📜 Announcement Cards */
   loaderContainer: {
     flex: 1,

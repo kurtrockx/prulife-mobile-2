@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   statusLabel: { fontSize: 16, fontWeight: "600", marginRight: 8 },
   statusValue: { fontSize: 18, fontWeight: "bold" },
   logoutBtn: {
-    backgroundColor: "#f2a1a1",
+    backgroundColor: "#b30f1c",
     paddingVertical: 14,
     borderRadius: 24,
     alignItems: "center",

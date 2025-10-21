@@ -1,9 +1,9 @@
 // 🔥 Firebase core setup
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
-  getAuth,
   initializeAuth,
   getReactNativePersistence,
+  onAuthStateChanged,
 } from "firebase/auth";
 import {
   getFirestore,
@@ -25,26 +25,35 @@ const firebaseConfig = {
   measurementId: "G-4Q4HMEDE57",
 };
 
-// ✅ Prevent multiple Firebase instances (important for Expo / hot reload)
+// ✅ Prevent multiple Firebase instances
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// ✅ Prevent re-initialization of Auth
-let auth;
-try {
-  auth = getAuth(app);
-} catch (e) {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
+// ✅ Initialize Firebase Auth with persistent AsyncStorage
+// (React Native requires manual setup)
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
+
+// ✅ Firestore initialization
+const db = getFirestore(app);
+
+// ✅ Export initialized services
+export { app, auth, db };
+
+/* =========================================================
+   👤 AUTH UTILITIES
+   ========================================================= */
+
+// Listen for user authentication state changes (persistent)
+export function subscribeToAuthState(callback) {
+  return onAuthStateChanged(auth, (user) => callback(user));
 }
-// 🔥 Firestore initialization
-export const db = getFirestore(app);
-export { auth };
 
 /* =========================================================
    📢 ANNOUNCEMENT BACKEND FUNCTIONS
    ========================================================= */
 
+// 🔔 Listen to Firestore announcements (real-time updates)
 export function listenToAnnouncements(callback) {
   const announcementsRef = collection(db, "announcements");
   const q = query(announcementsRef, orderBy("createdAt", "desc"));

@@ -9,7 +9,7 @@ export default function Index() {
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (user) {
-        router.replace("/chat"); // Must match exact tabs route
+        router.replace("/announcements"); // Must match exact tabs route
       } else {
         router.replace("/signin"); // Must match auth route
       }
