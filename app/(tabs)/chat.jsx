@@ -11,7 +11,10 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { auth, db } from "../../firebaseConfig";
 import {
@@ -42,6 +45,8 @@ const MessageBubble = ({ message }) => {
 };
 
 export default function ChatScreen() {
+const insets = useSafeAreaInsets();
+const isAndroid = Platform.OS === "android";
   const user = auth.currentUser;
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
@@ -116,13 +121,12 @@ export default function ChatScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <Text style={styles.header}>Hi, {firstName}</Text>
 
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <FlatList
@@ -141,7 +145,14 @@ export default function ChatScreen() {
           />
         </TouchableWithoutFeedback>
 
-        <View style={styles.inputContainer}>
+        <View
+          style={[
+            styles.inputContainer,
+            {
+              paddingBottom: isAndroid ? 40 : insets.bottom + 6, // 👈 Add manual buffer for Android
+            },
+          ]}
+        >
           <TextInput
             style={styles.input}
             placeholder="Type a message..."
@@ -150,8 +161,6 @@ export default function ChatScreen() {
             placeholderTextColor="#888"
             multiline
             maxLength={1000}
-            returnKeyType="default"
-            blurOnSubmit={false}
           />
           <TouchableOpacity
             style={[styles.sendBtn, !message.trim() && styles.sendBtnDisabled]}
@@ -206,6 +215,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     padding: 10,
+    paddingBottom: 20,
     borderTopWidth: 1,
     borderColor: "#E0E0E0",
     alignItems: "center",

@@ -2,5 +2,5 @@
 import { Slot } from "expo-router";
 
 export default function AuthLayout() {
-  return <Slot />; // Just render the child auth screen
+  return <Slot />;
 }

@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  Alert,
 } from "react-native";
 import { TextInput, Button } from "react-native-paper";
 import { signInWithEmailAndPassword } from "firebase/auth";
@@ -54,7 +55,7 @@ export default function SignInScreen() {
 
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      router.replace("/chat");
+      router.replace("/announcements");
     } catch (error) {
       Alert.alert("Login failed", error.message);
     }
@@ -99,7 +100,7 @@ export default function SignInScreen() {
             style={styles.linkButton}
           >
             <Text style={styles.linkButtonText}>
-              Don't have an account? <Text style={styles.signup}>Sign Up</Text>
+              Dont have an account? <Text style={styles.signup}>Sign Up</Text>
             </Text>
           </TouchableOpacity>
         </View>

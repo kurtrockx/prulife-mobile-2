@@ -1,3 +1,4 @@
+import prulifeLogo from "../../assets/images/prulifeLogo.png";
 import React from "react";
 import {
   View,
@@ -6,6 +7,7 @@ import {
   TouchableOpacity,
   Linking,
   ScrollView,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { auth } from "../../firebaseConfig"; // adjust path
@@ -59,6 +61,16 @@ export default function ProfilePage({ userData }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
+        <Image
+          source={prulifeLogo}
+          style={{
+            width: 80,
+            height: 80,
+            alignSelf: "center",
+            marginVertical: 10,
+            resizeMode: "contain",
+          }}
+        />
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Profile</Text>
@@ -95,17 +107,6 @@ export default function ProfilePage({ userData }) {
           <Text style={styles.value}>{formatDate(createdAt)}</Text>
         </View>
 
-        {/* PDF */}
-        <TouchableOpacity
-          style={[styles.pdfButton, !pdfUrl && { opacity: 0.5 }]}
-          onPress={handleOpenPDF}
-          disabled={!pdfUrl}
-        >
-          <Text style={styles.pdfButtonText}>
-            {pdfUrl ? "Download PDF" : "No PDF Available"}
-          </Text>
-        </TouchableOpacity>
-
         {/* Status */}
         <View style={styles.statusContainer}>
           <Text style={styles.statusLabel}>Status:</Text>
@@ -119,6 +120,17 @@ export default function ProfilePage({ userData }) {
             {status ? status.toUpperCase() : "-"}
           </Text>
         </View>
+
+        {/* PDF */}
+        <TouchableOpacity
+          style={[styles.pdfButton, !pdfUrl && { opacity: 0.5 }]}
+          onPress={handleOpenPDF}
+          disabled={!pdfUrl}
+        >
+          <Text style={styles.pdfButtonText}>
+            {pdfUrl ? "Download PDF" : "No PDF Available"}
+          </Text>
+        </TouchableOpacity>
 
         {/* Logout Button at the bottom */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
@@ -139,7 +151,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 20,
   },
-  headerTitle: { color: "white", fontSize: 22, fontWeight: "bold" },
+  headerTitle: { color: "white", fontSize: 24, fontWeight: "bold" },
   container: { paddingHorizontal: 20, paddingBottom: 40 },
   section: { marginBottom: 15 },
   label: { fontSize: 14, color: "#888", marginBottom: 4 },
@@ -159,13 +171,12 @@ const styles = StyleSheet.create({
     justifyContent: "flex-start",
   },
   statusLabel: { fontSize: 16, fontWeight: "600", marginRight: 8 },
-  statusValue: { fontSize: 16, fontWeight: "bold" },
+  statusValue: { fontSize: 18, fontWeight: "bold" },
   logoutBtn: {
     backgroundColor: "#f2a1a1",
     paddingVertical: 14,
     borderRadius: 24,
     alignItems: "center",
-    marginTop: 30,
   },
   logoutText: { color: "white", fontWeight: "600", fontSize: 16 },
 });

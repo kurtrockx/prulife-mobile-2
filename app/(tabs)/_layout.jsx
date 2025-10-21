@@ -1,41 +1,71 @@
 import { Tabs } from "expo-router";
-import { Text, useColorScheme } from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect } from "react";
 import * as NavigationBar from "expo-navigation-bar";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
-  const colorScheme = useColorScheme();
-
   useEffect(() => {
-    // Hide Android navigation bar
-    NavigationBar.setVisibilityAsync("hidden");
-    // Optional: make navbar transparent
-    NavigationBar.setBackgroundColorAsync("transparent");
+    const hideNavBar = async () => {
+      await NavigationBar.setVisibilityAsync("hidden"); // hides the Android navbar
+      await NavigationBar.setBehaviorAsync("overlay-swipe"); // allows swipe up temporarily
+    };
+
+    hideNavBar();
   }, []);
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: "#450509",
-        tabBarInactiveTintColor: "#888",
-        tabBarStyle: { height: 60, paddingBottom: 5, paddingTop: 5 },
-      }}
-    >
-      <Tabs.Screen
-        name="chat"
-        options={{
-          title: "Chat",
-          tabBarIcon: ({ color }) => <Text style={{ color }}>💬</Text>,
+    <SafeAreaView style={{ flex: 1, backgroundColor: "white" }}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: "#9c0012",
+          tabBarInactiveTintColor: "#888",
+          tabBarStyle: {
+            height: 70,
+            paddingBottom: 10,
+            paddingTop: 5,
+            backgroundColor: "white",
+            borderTopWidth: 0,
+          },
         }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color }) => <Text style={{ color }}>👤</Text>,
-        }}
-      />
-    </Tabs>
+      >
+        <Tabs.Screen
+          name="chat"
+          options={{
+            title: "Chat",
+            tabBarIcon: ({ color }) => (
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={24}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="announcements"
+          options={{
+            title: "Announcements",
+            tabBarIcon: ({ color }) => (
+              <MaterialCommunityIcons
+                name="bullhorn-outline" // megaphone style icon
+                size={26}
+                color={color}
+              />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: "Profile",
+            tabBarIcon: ({ color }) => (
+              <Ionicons name="person-circle-outline" size={26} color={color} />
+            ),
+          }}
+        />
+      </Tabs>
+    </SafeAreaView>
   );
 }
