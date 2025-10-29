@@ -7,7 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function TabsLayout() {
   useEffect(() => {
     const hideNavBar = async () => {
-      await NavigationBar.setVisibilityAsync("hidden"); // hides the Android navbar
+      await NavigationBar.setVisibilityAsync("hidden"); // hides Android navbar
       await NavigationBar.setBehaviorAsync("overlay-swipe"); // allows swipe up temporarily
     };
 
@@ -28,6 +28,9 @@ export default function TabsLayout() {
             backgroundColor: "white",
             borderTopWidth: 0,
           },
+          // 🔥 Add smooth transition between tabs
+          animation: "shift", // options: 'shift', 'fade', 'none'
+          animationDuration: 200, // transition speed in ms
         }}
       >
         <Tabs.Screen
@@ -49,7 +52,7 @@ export default function TabsLayout() {
             title: "Announcements",
             tabBarIcon: ({ color }) => (
               <MaterialCommunityIcons
-                name="bullhorn-outline" // megaphone style icon
+                name="bullhorn-outline"
                 size={26}
                 color={color}
               />

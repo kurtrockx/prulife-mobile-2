@@ -9,14 +9,29 @@ import {
   Modal,
   ScrollView,
   ActivityIndicator,
+  TextInput,
+  Pressable,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { listenToAnnouncements } from "../../firebaseConfig";
+import { Ionicons, AntDesign } from "@expo/vector-icons";
+import {
+  listenToAnnouncements,
+  listenToComments,
+  addComment,
+  likeAnnouncement,
+  unlikeAnnouncement,
+  listenToLikes,
+  hasUserLiked,
+  auth,
+} from "../../firebaseConfig";
 
 export default function AnnouncementPage() {
   const [announcements, setAnnouncements] = useState([]);
   const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [comments, setComments] = useState([]);
+  const [commentInput, setCommentInput] = useState("");
+  const [likes, setLikes] = useState({});
 
   useEffect(() => {
     const unsubscribe = listenToAnnouncements((data) => {
@@ -25,6 +40,71 @@ export default function AnnouncementPage() {
     });
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    // Wait until announcements are loaded
+    if (announcements.length === 0) return;
+
+    // Keep track of unsubscribe functions
+    const unsubscribers = [];
+
+    announcements.forEach((item) => {
+      const unsub = listenToLikes(item.id, (data) => {
+        setLikes((prev) => ({
+          ...prev,
+          [item.id]: data,
+        }));
+      });
+      unsubscribers.push(unsub);
+    });
+
+    // Cleanup all listeners when announcements change/unmount
+    return () => unsubscribers.forEach((unsub) => unsub());
+  }, [announcements]);
+
+  const toggleLike = async (item) => {
+    const user = auth.currentUser;
+    if (!user || !item?.id) return;
+
+    const currentLikes = likes[item.id] || [];
+    const hasLiked = currentLikes.some((l) => l.userId === user.uid);
+
+    // Optimistic UI update
+    setLikes((prev) => ({
+      ...prev,
+      [item.id]: hasLiked
+        ? prev[item.id].filter((l) => l.userId !== user.uid)
+        : [
+            ...(prev[item.id] || []),
+            { userId: user.uid, userEmail: user.email },
+          ],
+    }));
+
+    try {
+      if (hasLiked) {
+        await unlikeAnnouncement(item.id, user.uid);
+      } else {
+        await likeAnnouncement(item.id, user);
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!commentInput.trim() || !selected) return;
+
+    const user = auth.currentUser;
+    const authorName = user?.displayName || user?.email || "Anonymous";
+
+    await addComment(selected.id, {
+      text: commentInput.trim(),
+      author: authorName,
+      authorId: user?.uid || null,
+    });
+
+    setCommentInput("");
+  };
 
   if (loading) {
     return (
@@ -58,7 +138,31 @@ export default function AnnouncementPage() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.card}
-            onPress={() => setSelected(item)}
+            onPress={() => {
+              setSelected(item);
+              setComments([]);
+              setLikes((prev) => ({
+                ...prev,
+                [item.id]: prev[item.id] || [],
+              }));
+
+              // start listening to comments
+              const unsubComments = listenToComments(item.id, setComments);
+
+              // start listening to likes
+              const unsubLikes = listenToLikes(item.id, (data) => {
+                setLikes((prev) => ({
+                  ...prev,
+                  [item.id]: data,
+                }));
+              });
+
+              // clean up listeners when modal closes
+              return () => {
+                unsubComments();
+                unsubLikes();
+              };
+            }}
             activeOpacity={0.8}
           >
             {item.thumb ? (
@@ -76,16 +180,73 @@ export default function AnnouncementPage() {
                 {item.content}
               </Text>
               <Text style={styles.author}>By {item.author}</Text>
+
+              <View style={styles.reactionRow}>
+                <Pressable
+                  onPress={() => toggleLike(item)}
+                  style={({ pressed }) => [
+                    styles.reactionButton,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Ionicons
+                    name={
+                      likes[item.id]?.some(
+                        (l) => l.userId === auth.currentUser?.uid
+                      )
+                        ? "heart"
+                        : "heart-outline"
+                    }
+                    size={22}
+                    color={
+                      likes[item.id]?.some(
+                        (l) => l.userId === auth.currentUser?.uid
+                      )
+                        ? "#b30f1c"
+                        : "#555"
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.reactionText,
+                      likes[item.id]?.some(
+                        (l) => l.userId === auth.currentUser?.uid
+                      ) && { color: "#b30f1c" },
+                    ]}
+                  >
+                    {likes[item.id]?.length ?? 0} Likes
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => setSelected(item)} // you can open comment modal here later
+                  style={({ pressed }) => [
+                    styles.reactionButton,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Ionicons name="chatbubble-outline" size={21} color="#555" />
+                  <Text style={styles.reactionText}>Comment</Text>
+                </Pressable>
+              </View>
             </View>
           </TouchableOpacity>
         )}
       />
 
-      {/* 🔍 Modal for full view */}
+      {/* 🔍 Modal for full view + comments */}
       <Modal visible={!!selected} animationType="slide" transparent>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
-            <ScrollView>
+            {/* ❌ Top Close Button */}
+            <TouchableOpacity
+              onPress={() => setSelected(null)}
+              style={styles.closeCircle}
+            >
+              <Ionicons name="close" size={20} color="#333" />
+            </TouchableOpacity>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
               {selected?.image ? (
                 <Image
                   source={{ uri: selected.image }}
@@ -93,16 +254,67 @@ export default function AnnouncementPage() {
                 />
               ) : null}
               <Text style={styles.modalTitle}>{selected?.title}</Text>
-              <Text style={styles.modalSubtitle}>{selected?.subtitle}</Text>
+              <Text style={styles.modalSubtitle}>
+                {'"' + selected?.subtitle + '"'}
+              </Text>
               <Text style={styles.modalBody}>{selected?.content}</Text>
-              <Text style={styles.modalAuthor}>— {selected?.author}</Text>
 
-              <TouchableOpacity
-                onPress={() => setSelected(null)}
-                style={styles.closeButton}
-              >
-                <Text style={styles.closeText}>Close</Text>
-              </TouchableOpacity>
+              {/* 💬 Comment Section */}
+              <View style={styles.commentSection}>
+                <Text style={styles.commentHeader}>Comments</Text>
+
+                {/* 📝 Input stays at top */}
+                <View style={styles.commentInputRow}>
+                  <TextInput
+                    style={styles.commentInput}
+                    placeholder="Add a comment..."
+                    value={commentInput}
+                    onChangeText={setCommentInput}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={styles.postButton}
+                    onPress={handleAddComment}
+                  >
+                    <Text style={styles.postText}>Post</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 💬 Comment List */}
+                {comments.length === 0 ? (
+                  <Text style={styles.noCommentsText}>
+                    No comments yet. Be the first to comment!
+                  </Text>
+                ) : (
+                  comments.map((c) => (
+                    <View key={c.id} style={styles.commentItem}>
+                      <Ionicons
+                        name="person-circle-outline"
+                        size={26}
+                        color="#b30f1c"
+                      />
+                      <View style={{ flex: 1 }}>
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <Text style={{ fontWeight: "700", color: "#b30f1c" }}>
+                            {c.author || "Anonymous"}
+                          </Text>
+                          {c.createdAt?.toDate && (
+                            <Text style={{ fontSize: 10, color: "#999" }}>
+                              {c.createdAt.toDate().toLocaleString()}
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={styles.commentText}>{c.text}</Text>
+                      </View>
+                    </View>
+                  ))
+                )}
+              </View>
             </ScrollView>
           </View>
         </View>
@@ -112,13 +324,8 @@ export default function AnnouncementPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fafafa",
-    paddingHorizontal: 16,
-  },
+  container: { flex: 1, backgroundColor: "#fafafa", paddingHorizontal: 16 },
 
-  /* 🔴 PRULIFE Header */
   brandHeader: {
     flexDirection: "row",
     alignItems: "center",
@@ -132,34 +339,14 @@ const styles = StyleSheet.create({
     elevation: 5,
     marginBottom: 16,
     gap: 14,
-    boxShadow: "0px 8px 6px rgba(0, 0, 0, 0.2)",
   },
-  logo: {
-    width: 80,
-    height: 80,
-    marginRight: 12,
-  },
-  brandTextContainer: {
-    flexDirection: "column",
-    alignItems: "flex-start",
-  },
-  brandTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    color: "white",
-    letterSpacing: 1,
-  },
-  brandSubtitle: {
-    fontSize: 14,
-    color: "#fff9",
-    marginTop: -2,
-  },
-  /* 📜 Announcement Cards */
-  loaderContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  logo: { width: 80, height: 80, marginRight: 12 },
+  brandTextContainer: { flexDirection: "column", alignItems: "flex-start" },
+  brandTitle: { fontSize: 24, fontWeight: "800", color: "white" },
+  brandSubtitle: { fontSize: 14, color: "#fff9", marginTop: -2 },
+
+  loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
+
   card: {
     backgroundColor: "white",
     borderRadius: 16,
@@ -171,35 +358,30 @@ const styles = StyleSheet.create({
     elevation: 4,
     overflow: "hidden",
   },
-  thumbnail: {
-    width: "100%",
-    height: 180,
-    resizeMode: "cover",
+  thumbnail: { width: "100%", height: 180, resizeMode: "cover" },
+  textContainer: { padding: 14 },
+  title: { fontSize: 20, fontWeight: "600", color: "#222" },
+  subtitle: { fontSize: 14, color: "#777", marginTop: 2 },
+  content: { marginTop: 6, fontSize: 14, color: "#444", lineHeight: 20 },
+  author: { fontSize: 12, color: "#888", marginTop: 10, textAlign: "right" },
+
+  /* ❤️💬 Reaction Buttons */
+  reactionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    marginTop: 12,
+    gap: 20,
   },
-  textContainer: {
-    padding: 14,
+  reactionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  title: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#222",
-  },
-  subtitle: {
+  reactionText: {
     fontSize: 14,
-    color: "#777",
-    marginTop: 2,
-  },
-  content: {
-    marginTop: 6,
-    fontSize: 14,
-    color: "#444",
-    lineHeight: 20,
-  },
-  author: {
-    fontSize: 12,
-    color: "#888",
-    marginTop: 10,
-    textAlign: "right",
+    color: "#555",
+    fontWeight: "500",
   },
 
   /* 🪟 Modal */
@@ -214,12 +396,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 20,
     width: "100%",
-    maxHeight: "90%",
+    maxHeight: "80%",
+    padding: 0,
     paddingBottom: 20,
   },
   modalImage: {
     width: "100%",
-    height: 220,
+    height: 200,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
@@ -231,34 +414,92 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   modalSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#555",
     textAlign: "center",
     marginBottom: 10,
+    fontStyle: "italic",
   },
   modalBody: {
-    fontSize: 15,
+    fontSize: 12,
     color: "#333",
     lineHeight: 22,
     paddingHorizontal: 20,
     marginTop: 4,
+    textAlign: "justify",
   },
-  modalAuthor: {
-    fontSize: 13,
-    color: "#777",
-    textAlign: "right",
-    marginTop: 14,
+  closeCircle: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 10,
+    backgroundColor: "white",
+    borderRadius: 20,
+    width: 32,
+    height: 32,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+
+  /* 💬 Comments */
+  commentSection: {
+    borderTopColor: "#cad5e2",
+    borderTopWidth: 1,
+    paddingTop: 15,
+    marginTop: 25,
     paddingHorizontal: 20,
   },
-  closeButton: {
-    backgroundColor: "#b30f1c",
-    alignSelf: "center",
-    marginTop: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-    borderRadius: 30,
+  commentHeader: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#b30f1c",
+    marginBottom: 10,
   },
-  closeText: {
+  noCommentsText: {
+    color: "#777",
+    fontSize: 14,
+    marginBottom: 10,
+    fontStyle: "italic",
+  },
+  commentItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 10,
+    gap: 6,
+  },
+  commentText: {
+    flex: 1,
+    backgroundColor: "#f1f1f1",
+    padding: 8,
+    borderRadius: 10,
+    fontSize: 14,
+    color: "#333",
+  },
+  commentInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12, // Now above the comment list
+    gap: 8,
+  },
+  commentInput: {
+    flex: 1,
+    backgroundColor: "#f2f2f2",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    fontSize: 14,
+  },
+  postButton: {
+    backgroundColor: "#b30f1c",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  postText: {
     color: "white",
     fontWeight: "600",
   },
