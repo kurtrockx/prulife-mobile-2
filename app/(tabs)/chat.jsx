@@ -45,8 +45,7 @@ const MessageBubble = ({ message }) => {
 };
 
 export default function ChatScreen() {
-const insets = useSafeAreaInsets();
-const isAndroid = Platform.OS === "android";
+  const insets = useSafeAreaInsets();
   const user = auth.currentUser;
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
@@ -54,6 +53,7 @@ const isAndroid = Platform.OS === "android";
   const flatListRef = useRef(null);
   const userRef = doc(db, "users", user.uid);
 
+  // Listen for messages and user data
   useEffect(() => {
     const unsubscribe = onSnapshot(userRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -65,12 +65,14 @@ const isAndroid = Platform.OS === "android";
     return unsubscribe;
   }, [userRef]);
 
+  // Scroll to bottom when messages change
   useEffect(() => {
     flatListRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
+  // Scroll when keyboard shows
   useEffect(() => {
-    const keyboardWillShow = Keyboard.addListener(
+    const keyboardShow = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
       () => {
         setTimeout(() => {
@@ -78,10 +80,7 @@ const isAndroid = Platform.OS === "android";
         }, 100);
       }
     );
-
-    return () => {
-      keyboardWillShow.remove();
-    };
+    return () => keyboardShow.remove();
   }, []);
 
   const getTodayDate = () => new Date().toISOString().split("T")[0];
@@ -102,6 +101,7 @@ const isAndroid = Platform.OS === "android";
 
     setMessage("");
 
+    // Auto-reply once per day
     const snap = await getDoc(userRef);
     const messagesData = snap.exists() ? snap.data().messages || [] : [];
     const adminRepliedToday = messagesData.some(
@@ -121,14 +121,15 @@ const isAndroid = Platform.OS === "android";
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={["top"]}>
-      <Text style={styles.header}>Hi, {firstName}</Text>
-
+    <View style={{ flex: 1, backgroundColor: "#fff" }} edges={["top"]}>
       <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={0}
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.header}>Hi, {firstName}</Text>
+
           <FlatList
             ref={flatListRef}
             data={messages.sort((a, b) => a.createdAt - b.createdAt)}
@@ -136,49 +137,41 @@ const isAndroid = Platform.OS === "android";
             renderItem={({ item }) => <MessageBubble message={item} />}
             contentContainerStyle={styles.messageList}
             keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() =>
-              flatListRef.current?.scrollToEnd({ animated: true })
-            }
-            onLayout={() =>
-              flatListRef.current?.scrollToEnd({ animated: false })
-            }
           />
-        </TouchableWithoutFeedback>
 
-        <View
-          style={[
-            styles.inputContainer,
-            {
-              paddingBottom: isAndroid ? 40 : insets.bottom + 6, // 👈 Add manual buffer for Android
-            },
-          ]}
-        >
-          <TextInput
-            style={styles.input}
-            placeholder="Type a message..."
-            value={message}
-            onChangeText={setMessage}
-            placeholderTextColor="#888"
-            multiline
-            maxLength={1000}
-          />
-          <TouchableOpacity
-            style={[styles.sendBtn, !message.trim() && styles.sendBtnDisabled]}
-            onPress={sendMessage}
-            disabled={!message.trim()}
-            activeOpacity={0.7}
+          <View
+            style={[
+              styles.inputContainer,
+              { paddingBottom: insets.bottom || 10 },
+            ]}
           >
-            <Ionicons name="send" size={20} color="#fff" />
-          </TouchableOpacity>
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message..."
+              value={message}
+              onChangeText={setMessage}
+              placeholderTextColor="#888"
+              multiline
+              maxLength={1000}
+            />
+            <TouchableOpacity
+              style={[
+                styles.sendBtn,
+                !message.trim() && styles.sendBtnDisabled,
+              ]}
+              onPress={sendMessage}
+              disabled={!message.trim()}
+            >
+              <Ionicons name="send" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  flex: { flex: 1 },
   header: {
     padding: 16,
     fontSize: 20,
@@ -190,10 +183,14 @@ const styles = StyleSheet.create({
   },
   messageList: {
     padding: 10,
-    paddingBottom: 10,
     flexGrow: 1,
   },
-  bubble: { maxWidth: "75%", padding: 12, marginVertical: 4, borderRadius: 24 },
+  bubble: {
+    maxWidth: "75%",
+    padding: 12,
+    marginVertical: 4,
+    borderRadius: 24,
+  },
   userBubble: {
     backgroundColor: "#b30f1c",
     alignSelf: "flex-end",
@@ -214,11 +211,11 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     flexDirection: "row",
-    padding: 10,
-    paddingBottom: 20,
+    paddingHorizontal: 10,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderColor: "#E0E0E0",
-    alignItems: "center",
+    alignItems: "flex-end",
     backgroundColor: "#fff",
   },
   input: {
@@ -229,7 +226,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     marginRight: 8,
-    maxHeight: 100,
+    maxHeight: 120,
   },
   sendBtn: {
     backgroundColor: "#b30f1c",

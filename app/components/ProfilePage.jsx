@@ -10,8 +10,8 @@ import {
   Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { auth } from "../../firebaseConfig"; // adjust path
-import { router } from "expo-router"; // if using Expo Router
+import { auth } from "../../firebaseConfig";
+import { router } from "expo-router";
 
 export default function ProfilePage({ userData }) {
   const {
@@ -29,22 +29,19 @@ export default function ProfilePage({ userData }) {
     if (!pdfUrl) return;
     try {
       const supported = await Linking.canOpenURL(pdfUrl);
-      if (supported) {
-        await Linking.openURL(pdfUrl);
-      } else {
-        await Linking.openURL(pdfUrl + "?dl=1");
-      }
-    } catch (error) {
-      console.error("Cannot open PDF:", error);
+      if (supported) await Linking.openURL(pdfUrl);
+      else await Linking.openURL(pdfUrl + "?dl=1");
+    } catch (err) {
+      console.error("Cannot open PDF:", err);
     }
   };
 
   const handleLogout = async () => {
     try {
       await auth.signOut();
-      router.push("/signin"); // adjust route as needed
-    } catch (error) {
-      console.error("Logout failed:", error);
+      router.push("/signin");
+    } catch (err) {
+      console.error("Logout failed:", err);
     }
   };
 
@@ -58,72 +55,53 @@ export default function ProfilePage({ userData }) {
     });
   };
 
+  const CardSection = ({ label, value }) => (
+    <View style={styles.cardSection}>
+      <Text style={styles.cardLabel}>{label}</Text>
+      <Text style={styles.cardValue}>{value || "-"}</Text>
+    </View>
+  );
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["bottom", "top"]}>
       <ScrollView contentContainerStyle={styles.container}>
-        <Image
-          source={prulifeLogo}
-          style={{
-            width: 80,
-            height: 80,
-            alignSelf: "center",
-            marginVertical: 10,
-            resizeMode: "contain",
-          }}
-        />
-        {/* Header */}
+        {/* Profile Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Profile</Text>
+          <Image source={prulifeLogo} style={styles.avatar} />
+          <Text style={styles.name}>{fullname || "Anonymous"}</Text>
+          <Text style={styles.email}>{email || ""}</Text>
+          {status ? (
+            <View
+              style={[
+                styles.statusBadge,
+                status === "approved" && { backgroundColor: "#d4edda" },
+                status === "pending" && { backgroundColor: "#ffe3e3" },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusText,
+                  status === "approved" && { color: "green" },
+                  status === "pending" && { color: "#b30f1c" },
+                ]}
+              >
+                {status.toUpperCase()}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
-        {/* User Info */}
-        <View style={styles.section}>
-          <Text style={styles.label}>Full Name</Text>
-          <Text style={styles.value}>{fullname || "-"}</Text>
+        {/* User Info Cards */}
+        <View style={styles.cardsContainer}>
+          <CardSection label="Birthdate" value={formatDate(birthdate)} />
+          <CardSection label="Contact Number" value={contactNumber} />
+          <CardSection label="Occupation" value={occupation} />
+          <CardSection label="Account Created" value={formatDate(createdAt)} />
         </View>
 
-        <View style={styles.section}>
-          <Text style={styles.label}>Email</Text>
-          <Text style={styles.value}>{email || "-"}</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>Birthdate</Text>
-          <Text style={styles.value}>{formatDate(birthdate)}</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>Contact Number</Text>
-          <Text style={styles.value}>{contactNumber || "-"}</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>Occupation</Text>
-          <Text style={styles.value}>{occupation || "-"}</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.label}>Account Created</Text>
-          <Text style={styles.value}>{formatDate(createdAt)}</Text>
-        </View>
-
-        {/* Status */}
-        <View style={styles.statusContainer}>
-          <Text style={styles.statusLabel}>Status:</Text>
-          <Text
-            style={[
-              styles.statusValue,
-              status === "pending" && { color: "#b30f1c" },
-              status === "approved" && { color: "green" },
-            ]}
-          >
-            {status ? status.toUpperCase() : "-"}
-          </Text>
-        </View>
-
-        {/* PDF */}
+        {/* PDF Download */}
         <TouchableOpacity
-          style={[styles.pdfButton, !pdfUrl && { opacity: 0.5 }]}
+          style={[styles.pdfButton, !pdfUrl && { opacity: 0.6 }]}
           onPress={handleOpenPDF}
           disabled={!pdfUrl}
         >
@@ -132,7 +110,7 @@ export default function ProfilePage({ userData }) {
           </Text>
         </TouchableOpacity>
 
-        {/* Logout Button at the bottom */}
+        {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
@@ -142,41 +120,81 @@ export default function ProfilePage({ userData }) {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "white" },
+  safeArea: { flex: 1, backgroundColor: "#f5f6fa" },
+  container: { padding: 16, paddingBottom: 40 },
+
+  /* Header */
   header: {
-    height: 60,
-    justifyContent: "center",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
     alignItems: "center",
-    backgroundColor: "#b30f1c",
-    borderRadius: 10,
-    marginBottom: 20,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+    position: "relative",
   },
-  headerTitle: { color: "white", fontSize: 24, fontWeight: "bold" },
-  container: { paddingHorizontal: 20, paddingBottom: 40 },
-  section: { marginBottom: 15 },
-  label: { fontSize: 14, color: "#888", marginBottom: 4 },
-  value: { fontSize: 16, fontWeight: "600", color: "#000" },
+  avatar: { width: 80, height: 80, borderRadius: 40, marginBottom: 8 },
+  name: { fontSize: 20, fontWeight: "700", color: "#222", marginBottom: 2 },
+  email: { fontSize: 14, color: "#555", marginBottom: 8 },
+  statusBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  statusText: { fontWeight: "700", fontSize: 10 },
+
+  /* Cards */
+  cardsContainer: { marginBottom: 20 },
+  cardSection: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.02,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  cardLabel: { fontSize: 12, color: "#888", marginBottom: 2 },
+  cardValue: { fontSize: 15, fontWeight: "600", color: "#222" },
+
+  /* Buttons */
   pdfButton: {
     backgroundColor: "#b30f1c",
+    borderRadius: 25,
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 24,
     alignItems: "center",
-    marginVertical: 20,
+    marginVertical: 12,
+    shadowColor: "#b30f1c",
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
-  pdfButtonText: { color: "white", fontWeight: "600", fontSize: 16 },
-  statusContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-start",
-  },
-  statusLabel: { fontSize: 16, fontWeight: "600", marginRight: 8 },
-  statusValue: { fontSize: 18, fontWeight: "bold" },
+  pdfButtonText: { color: "#fff", fontWeight: "600", fontSize: 15 },
   logoutBtn: {
-    backgroundColor: "#b30f1c",
-    paddingVertical: 14,
-    borderRadius: 24,
+    backgroundColor: "#fff",
+    borderRadius: 25,
+    paddingVertical: 12,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
-  logoutText: { color: "white", fontWeight: "600", fontSize: 16 },
+  logoutText: { color: "#b30f1c", fontWeight: "700", fontSize: 15 },
 });

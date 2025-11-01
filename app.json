@@ -1,5 +1,10 @@
 {
   "expo": {
+    "androidNavigationBar": {
+      "visible": "leanback",
+      "barStyle": "light-content",
+      "backgroundColor": "#000000"
+    },
     "name": "prulife-mobile-app",
     "slug": "prulife-mobile-app",
     "version": "1.0.0",
@@ -14,6 +19,13 @@
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
+      "enableEdgeToEdge": false,
+      "softwareKeyboardLayoutMode": "pan",
+      "navigationBar": {
+        "visible": "leanback",
+        "barStyle": "light-content",
+        "backgroundColor": "#000000"
+      },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -21,7 +33,6 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png",
         "bundleIdentifier": "com.prulife.firebase"
       },
-      "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "googleServicesFile": "./google-services.json",
       "package": "com.prulife.firebase"
@@ -58,6 +69,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "52229f7f-6959-47c5-bc8b-6bcb17ddaa94"
+      }
     }
   }
 }
