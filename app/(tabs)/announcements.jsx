@@ -6,13 +6,14 @@ import {
   FlatList,
   Image,
   TouchableOpacity,
-  Modal,
   ScrollView,
   ActivityIndicator,
   TextInput,
   Pressable,
+  Animated,
+  Dimensions,
 } from "react-native";
-import { Ionicons, AntDesign } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   listenToAnnouncements,
@@ -24,6 +25,8 @@ import {
   auth,
 } from "../../firebaseConfig";
 
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+
 export default function AnnouncementPage() {
   const [announcements, setAnnouncements] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -31,9 +34,17 @@ export default function AnnouncementPage() {
   const [comments, setComments] = useState([]);
   const [commentInput, setCommentInput] = useState("");
   const [likes, setLikes] = useState({});
+  const [fadeAnim] = useState(new Animated.Value(0));
 
   useEffect(() => {
     if (!selected) return;
+
+    // Animate fade in
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
 
     // Subscribe to comments for selected announcement
     const unsub = listenToComments(selected.id, (data) => {
@@ -98,6 +109,17 @@ export default function AnnouncementPage() {
       authorId: user?.uid || null,
     });
     setCommentInput("");
+  };
+
+  const closeModal = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      setSelected(null);
+      setComments([]);
+    });
   };
 
   if (loading)
@@ -202,17 +224,14 @@ export default function AnnouncementPage() {
         )}
       />
 
-      {/* Post Modal */}
-      <Modal visible={!!selected} animationType="slide" transparent>
-        <View style={styles.modalBackdrop}>
+      {/* Custom Modal Overlay */}
+      {selected && (
+        <Animated.View style={[styles.modalBackdrop, { opacity: fadeAnim }]}>
           <View style={styles.modalContent}>
-            {/* Fixed Header */}
+            {/* Modal Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalHeaderTitle}>Announcement</Text>
-              <TouchableOpacity
-                onPress={() => setSelected(null)}
-                style={styles.modalClose}
-              >
+              <TouchableOpacity onPress={closeModal} style={styles.modalClose}>
                 <Ionicons name="close" size={24} color="#222" />
               </TouchableOpacity>
             </View>
@@ -240,7 +259,6 @@ export default function AnnouncementPage() {
               {/* Comments */}
               <View style={styles.commentSection}>
                 <Text style={styles.commentHeader}>Comments</Text>
-
                 {comments.length === 0 ? (
                   <Text style={styles.noComments}>
                     No comments yet. Be the first!
@@ -288,8 +306,8 @@ export default function AnnouncementPage() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -365,16 +383,20 @@ const styles = StyleSheet.create({
 
   /* Modal */
   modalBackdrop: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    zIndex: 999,
   },
   modalContent: {
     backgroundColor: "#fff",
     borderRadius: 10,
-    width: "100%",
+    maxWidth: "85%",
     maxHeight: "85%",
     overflow: "hidden",
   },
@@ -398,6 +420,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     zIndex: 10,
   },
+  modalBody: { textAlign: "justify" },
   modalHeaderTitle: { fontSize: 18, fontWeight: "700", color: "#b30f1c" },
   modalTextContainer: { paddingHorizontal: 16, paddingVertical: 12 },
   modalImage: {
@@ -455,26 +478,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#b30f1c",
     marginBottom: 10,
-  },
-  commentInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 10,
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: "#f0f2f5",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    fontSize: 14,
-  },
-  commentPostBtn: {
-    backgroundColor: "#b30f1c",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    marginLeft: 6,
   },
   noComments: { color: "#777", fontStyle: "italic", fontSize: 13 },
   commentItem: {

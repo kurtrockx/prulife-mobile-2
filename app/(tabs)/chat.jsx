@@ -9,12 +9,10 @@ import {
   Platform,
   KeyboardAvoidingView,
   Keyboard,
-  TouchableWithoutFeedback,
+  Animated,
+  ScrollView,
 } from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { auth, db } from "../../firebaseConfig";
 import {
@@ -24,6 +22,16 @@ import {
   arrayUnion,
   getDoc,
 } from "firebase/firestore";
+
+const QuickTexts = [
+  "Hello!",
+  "Thank you!",
+  "I need help.",
+  "Can we talk?",
+  "Please call me",
+  "Good morning!",
+  "Good night!",
+];
 
 const MessageBubble = ({ message }) => {
   const isUser = message.sender === "user";
@@ -50,10 +58,12 @@ export default function ChatScreen() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
   const [firstName, setFirstName] = useState("");
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [showQuickTexts, setShowQuickTexts] = useState(false);
   const flatListRef = useRef(null);
   const userRef = doc(db, "users", user.uid);
 
-  // Listen for messages and user data
   useEffect(() => {
     const unsubscribe = onSnapshot(userRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -65,20 +75,18 @@ export default function ChatScreen() {
     return unsubscribe;
   }, [userRef]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     flatListRef.current?.scrollToEnd({ animated: true });
   }, [messages]);
 
-  // Scroll when keyboard shows
   useEffect(() => {
     const keyboardShow = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
-      () => {
-        setTimeout(() => {
-          flatListRef.current?.scrollToEnd({ animated: true });
-        }, 100);
-      }
+      () =>
+        setTimeout(
+          () => flatListRef.current?.scrollToEnd({ animated: true }),
+          100
+        )
     );
     return () => keyboardShow.remove();
   }, []);
@@ -87,7 +95,6 @@ export default function ChatScreen() {
 
   const sendMessage = async () => {
     if (!message.trim()) return;
-
     const today = getTodayDate();
 
     await updateDoc(userRef, {
@@ -98,10 +105,9 @@ export default function ChatScreen() {
         date: today,
       }),
     });
-
     setMessage("");
+    setShowQuickTexts(false);
 
-    // Auto-reply once per day
     const snap = await getDoc(userRef);
     const messagesData = snap.exists() ? snap.data().messages || [] : [];
     const adminRepliedToday = messagesData.some(
@@ -120,6 +126,28 @@ export default function ChatScreen() {
     }
   };
 
+  const openModal = (msg) => {
+    setSelectedMessage(msg);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeModal = () => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => setSelectedMessage(null));
+  };
+
+  const insertQuickText = (text) => {
+    setMessage(text);
+    setShowQuickTexts(false);
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }} edges={["top"]}>
       <KeyboardAvoidingView
@@ -134,17 +162,52 @@ export default function ChatScreen() {
             ref={flatListRef}
             data={messages.sort((a, b) => a.createdAt - b.createdAt)}
             keyExtractor={(item, index) => item.id || index.toString()}
-            renderItem={({ item }) => <MessageBubble message={item} />}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => openModal(item)}>
+                <MessageBubble message={item} />
+              </TouchableOpacity>
+            )}
             contentContainerStyle={styles.messageList}
             keyboardShouldPersistTaps="handled"
           />
 
+          {/* Quick Text Panel */}
+          {showQuickTexts && (
+            <Animated.View style={styles.quickTextOverlay}>
+              <ScrollView
+                style={{ maxHeight: 200 }}
+                contentContainerStyle={styles.quickTextScroll}
+              >
+                {QuickTexts.map((qt, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.quickTextButton}
+                    onPress={() => insertQuickText(qt)}
+                  >
+                    <Text style={styles.quickTextLabel}>{qt}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </Animated.View>
+          )}
+
+          {/* Input Row */}
           <View
             style={[
               styles.inputContainer,
               { paddingBottom: insets.bottom || 10 },
             ]}
           >
+            <TouchableOpacity
+              onPress={() => setShowQuickTexts((prev) => !prev)}
+              style={styles.quickBtn}
+            >
+              <Ionicons
+                name="ellipsis-horizontal-circle"
+                size={28}
+                color="#b30f1c"
+              />
+            </TouchableOpacity>
             <TextInput
               style={styles.input}
               placeholder="Type a message..."
@@ -167,6 +230,29 @@ export default function ChatScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Custom Modal Overlay */}
+      {selectedMessage && (
+        <Animated.View style={[styles.modalBackdrop, { opacity: fadeAnim }]}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Message Details</Text>
+              <TouchableOpacity onPress={closeModal} style={styles.modalClose}>
+                <Ionicons name="close" size={24} color="#222" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView contentContainerStyle={{ padding: 16 }}>
+              <Text style={styles.modalMessage}>{selectedMessage.message}</Text>
+              <Text style={styles.modalTimestamp}>
+                {new Date(selectedMessage.createdAt).toLocaleString()}
+              </Text>
+              <Text style={{ marginTop: 10 }}>
+                Sender: {selectedMessage.sender === "user" ? "You" : "Admin"}
+              </Text>
+            </ScrollView>
+          </View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -181,16 +267,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#E0E0E0",
   },
-  messageList: {
-    padding: 10,
-    flexGrow: 1,
-  },
-  bubble: {
-    maxWidth: "75%",
-    padding: 12,
-    marginVertical: 4,
-    borderRadius: 24,
-  },
+  messageList: { padding: 10, flexGrow: 1 },
+  bubble: { maxWidth: "75%", padding: 12, marginVertical: 4, borderRadius: 24 },
   userBubble: {
     backgroundColor: "#b30f1c",
     alignSelf: "flex-end",
@@ -209,6 +287,7 @@ const styles = StyleSheet.create({
     marginTop: 3,
     alignSelf: "flex-end",
   },
+
   inputContainer: {
     flexDirection: "row",
     paddingHorizontal: 10,
@@ -236,7 +315,70 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  sendBtnDisabled: {
-    opacity: 0.5,
+  sendBtnDisabled: { opacity: 0.5 },
+  quickBtn: { marginRight: 6 },
+
+  /* Quick Text Overlay */
+  quickTextOverlay: {
+    position: "absolute",
+    bottom: 70,
+    left: 10,
+    right: 10,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
+    zIndex: 999,
   },
+  quickTextScroll: { flexDirection: "column", alignItems: "stretch" },
+  quickTextButton: {
+    backgroundColor: "#b30f1c",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    marginVertical: 4,
+  },
+  quickTextLabel: { color: "#fff", fontWeight: "600", textAlign: "center" },
+
+  /* Modal */
+  modalBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 999,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    width: "90%",
+    maxHeight: "80%",
+    overflow: "hidden",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#b30f1c" },
+  modalClose: {
+    padding: 6,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    elevation: 2,
+  },
+  modalMessage: { fontSize: 16, marginBottom: 10 },
+  modalTimestamp: { fontSize: 12, color: "#666" },
 });
