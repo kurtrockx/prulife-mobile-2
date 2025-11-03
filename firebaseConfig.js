@@ -147,7 +147,6 @@ export const unlikeAnnouncement = async (announcementId, userId) => {
   }
 };
 
-
 // 👂 Listen for all likes on a specific announcement
 export function listenToLikes(announcementId, callback) {
   const likesRef = collection(db, "announcements", announcementId, "likes");

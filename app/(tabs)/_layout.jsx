@@ -7,48 +7,39 @@ import {
 } from "react-native-safe-area-context";
 import * as NavigationBar from "expo-navigation-bar";
 import { useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, Platform } from "react-native";
+import { StatusBar } from "react-native";
 
-// ⚙️ Create Material Top Tabs compatible with Expo Router
 const TopTabs = withLayoutContext(createMaterialTopTabNavigator().Navigator);
 
 export default function TabsLayout() {
   const insets = useSafeAreaInsets();
 
-  // 🔹 Ensure Android system navbar is always visible
   useEffect(() => {
-    const setSystemNavBar = async () => {
-      try {
-        // Wait briefly to ensure layout is rendered
-        await new Promise((resolve) => setTimeout(resolve, 100));
-
-        await NavigationBar.setVisibilityAsync("visible"); // navbar visible
-        await NavigationBar.setBackgroundColorAsync("#000000"); // black background
-        await NavigationBar.setButtonStyleAsync("light"); // white icons
-        await NavigationBar.setBehaviorAsync("inset-swipe"); // normal behavior
-      } catch (e) {
-        console.log("Navigation bar setup error:", e);
-      }
-    };
-
-    setSystemNavBar();
+    if (Platform.OS === "android") {
+      const hideNavBar = async () => {
+        try {
+          await NavigationBar.setVisibilityAsync("hidden");
+          await NavigationBar.setBehaviorAsync("immersive");
+        } catch (e) {
+          console.log("Navigation bar hide error:", e);
+        }
+      };
+      hideNavBar();
+    }
   }, []);
 
   return (
     <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: "black",
-        paddingTop: insets.top,
-      }}
-      edges={["left", "right", "bottom"]} // ✅ keep bottom safe area
+      style={{ flex: 1, backgroundColor: "black", paddingTop: insets.top }}
+      edges={["left", "right"]}
     >
-      {/* 🔴 Header Bar — PruLife UK */}
+      <StatusBar barStyle="light-content" backgroundColor="#9c0012" />
+
       <View style={styles.header}>
         <Text style={styles.brand}>PRULIFE UK</Text>
       </View>
 
-      {/* 🧭 Top Tabs under header */}
       <View style={{ flex: 1 }}>
         <TopTabs
           screenOptions={{
@@ -118,7 +109,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: "#9c0012", // red
+    backgroundColor: "#9c0012",
   },
   brand: {
     fontSize: 12,

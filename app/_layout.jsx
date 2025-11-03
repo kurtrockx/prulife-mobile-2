@@ -7,25 +7,26 @@ import { StatusBar } from "expo-status-bar";
 
 export default function RootLayout() {
   useEffect(() => {
-    async function configureNavigationBar() {
-      if (Platform.OS === "android") {
+    if (Platform.OS === "android") {
+      const hideNavBar = async () => {
         try {
-          await NavigationBar.setBackgroundColorAsync("#000000"); // solid black navbar
-          await NavigationBar.setButtonStyleAsync("light"); // white icons
-        } catch (e) {
-          console.warn("NavigationBar config failed:", e);
-        }
-      }
-    }
+          // Hide navbar
+          await NavigationBar.setVisibilityAsync("hidden");
 
-    configureNavigationBar();
+          // Make gestures immersive
+          await NavigationBar.setBehaviorAsync("immersive");
+        } catch (e) {
+          console.log("NavBar hide error:", e);
+        }
+      };
+
+      hideNavBar();
+    }
   }, []);
 
   return (
     <>
-      {/* 🧭 Status Bar (top) */}
-      <StatusBar style="light" backgroundColor="#000000" translucent={false} />
-      {/* 🧱 App Content */}
+      <StatusBar style="light" backgroundColor="#000000" translucent={true} />
       <Slot />
     </>
   );

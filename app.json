@@ -1,15 +1,25 @@
 {
   "expo": {
+    "updates": {
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    },
+    "splash": {
+      "image": "./assets/images/prulifeIcon2.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "androidNavigationBar": {
       "visible": "leanback",
       "barStyle": "light-content",
       "backgroundColor": "#000000"
     },
-    "name": "prulife-mobile-app",
+    "name": "Prulife UK Insurance",
     "slug": "prulife-mobile-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/prulifeIcon2.png",
     "scheme": "prulifemobileapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -19,12 +29,19 @@
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
-      "enableEdgeToEdge": false,
+      "edgeToEdgeEnabled": false,
       "softwareKeyboardLayoutMode": "pan",
       "navigationBar": {
-        "visible": "leanback",
+        "visible": "visible",
+        "barStyle": "light",
+        "backgroundColor": "#000000",
+        "gestureDirection": "none",
+        "translucent": false
+      },
+      "statusBar": {
         "barStyle": "light-content",
-        "backgroundColor": "#000000"
+        "backgroundColor": "red",
+        "translucent": false
       },
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -39,14 +56,14 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/prulifeLogo.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/prulifeLogo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",

@@ -149,7 +149,7 @@ export default function ChatScreen() {
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#fff" }} edges={["top"]}>
+    <View style={{ flex: 1, backgroundColor: "#fff" }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -169,13 +169,20 @@ export default function ChatScreen() {
             )}
             contentContainerStyle={styles.messageList}
             keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
+            onLayout={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
           />
 
           {/* Quick Text Panel */}
           {showQuickTexts && (
             <Animated.View style={styles.quickTextOverlay}>
               <ScrollView
-                style={{ maxHeight: 200 }}
+                horizontal
+                showsHorizontalScrollIndicator={false}
                 contentContainerStyle={styles.quickTextScroll}
               >
                 {QuickTexts.map((qt, idx) => (
@@ -294,7 +301,7 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderColor: "#E0E0E0",
-    alignItems: "flex-end",
+    alignItems: "center",
     backgroundColor: "#fff",
   },
   input: {
@@ -324,27 +331,36 @@ const styles = StyleSheet.create({
     bottom: 70,
     left: 10,
     right: 10,
-    backgroundColor: "#fff",
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
     borderRadius: 16,
     paddingVertical: 8,
     paddingHorizontal: 10,
     shadowColor: "#000",
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
     elevation: 6,
     zIndex: 999,
   },
-  quickTextScroll: { flexDirection: "column", alignItems: "stretch" },
+
+  quickTextScroll: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8, // For spacing between buttons (RN >= 0.70) or use marginRight on buttons
+  },
+
   quickTextButton: {
     backgroundColor: "#b30f1c",
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 20,
-    marginVertical: 4,
   },
-  quickTextLabel: { color: "#fff", fontWeight: "600", textAlign: "center" },
 
+  quickTextLabel: {
+    color: "#fff",
+    fontWeight: "600",
+    textAlign: "center",
+  },
   /* Modal */
   modalBackdrop: {
     position: "absolute",

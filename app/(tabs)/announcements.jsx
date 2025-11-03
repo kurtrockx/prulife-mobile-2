@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -10,11 +10,16 @@ import {
   ActivityIndicator,
   TextInput,
   Pressable,
-  Animated,
   Dimensions,
+  RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import * as Animatable from "react-native-animatable";
 import {
   listenToAnnouncements,
   listenToComments,
@@ -25,7 +30,7 @@ import {
   auth,
 } from "../../firebaseConfig";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
 export default function AnnouncementPage() {
   const [announcements, setAnnouncements] = useState([]);
@@ -34,34 +39,32 @@ export default function AnnouncementPage() {
   const [comments, setComments] = useState([]);
   const [commentInput, setCommentInput] = useState("");
   const [likes, setLikes] = useState({});
-  const [fadeAnim] = useState(new Animated.Value(0));
+  const [refreshing, setRefreshing] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState({});
+  const [doubleTapHeart, setDoubleTapHeart] = useState({});
+  const flatListRefs = useRef({});
+  const lastTap = useRef({});
+  const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    if (!selected) return;
-
-    // Animate fade in
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 200,
-      useNativeDriver: true,
-    }).start();
-
-    // Subscribe to comments for selected announcement
-    const unsub = listenToComments(selected.id, (data) => {
-      setComments(data);
-    });
-
-    return () => unsub();
-  }, [selected]);
-
-  useEffect(() => {
+  /* ==========================
+      Fetch Announcements
+  ========================== */
+  const fetchAnnouncements = () => {
     const unsub = listenToAnnouncements((data) => {
       setAnnouncements(data);
       setLoading(false);
     });
+    return unsub;
+  };
+
+  useEffect(() => {
+    const unsub = fetchAnnouncements();
     return () => unsub();
   }, []);
 
+  /* ==========================
+      Listen to Likes
+  ========================== */
   useEffect(() => {
     if (announcements.length === 0) return;
     const unsubscribers = [];
@@ -74,6 +77,20 @@ export default function AnnouncementPage() {
     return () => unsubscribers.forEach((u) => u());
   }, [announcements]);
 
+  /* ==========================
+      Listen to Comments
+  ========================== */
+  useEffect(() => {
+    if (!selected) return;
+    const unsub = listenToComments(selected.id, (data) => {
+      setComments(data);
+    });
+    return () => unsub();
+  }, [selected]);
+
+  /* ==========================
+      Like / Unlike
+  ========================== */
   const toggleLike = async (item) => {
     const user = auth.currentUser;
     if (!user || !item?.id) return;
@@ -99,27 +116,63 @@ export default function AnnouncementPage() {
     }
   };
 
+  /* ==========================
+      Add Comment
+  ========================== */
   const handleAddComment = async () => {
     if (!commentInput.trim() || !selected) return;
     const user = auth.currentUser;
     const authorName = user?.displayName || user?.email || "Anonymous";
+
     await addComment(selected.id, {
       text: commentInput.trim(),
       author: authorName,
       authorId: user?.uid || null,
     });
+
     setCommentInput("");
+    setTimeout(() => {
+      flatListRefs.current["comments"]?.scrollToEnd({ animated: true });
+    }, 200);
   };
 
-  const closeModal = () => {
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: true,
-    }).start(() => {
-      setSelected(null);
-      setComments([]);
-    });
+  const closeModal = () => setSelected(null);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    fetchAnnouncements();
+    setRefreshing(false);
+  };
+
+  /* ==========================
+      Double Tap Heart
+  ========================== */
+  const handleDoubleTap = (item) => {
+    const now = Date.now();
+    const DOUBLE_PRESS_DELAY = 300;
+
+    if (
+      lastTap.current[item.id] &&
+      now - lastTap.current[item.id] < DOUBLE_PRESS_DELAY
+    ) {
+      setDoubleTapHeart({ [item.id]: true });
+      toggleLike(item);
+      setTimeout(() => setDoubleTapHeart({ [item.id]: false }), 800);
+    }
+    lastTap.current[item.id] = now;
+  };
+
+  /* ==========================
+      Image Navigation Arrows
+  ========================== */
+  const scrollImage = (itemId, direction) => {
+    const images = announcements.find((a) => a.id === itemId)?.images || [];
+    const newIndex =
+      ((currentImageIndex[itemId] || 0) + direction + images.length) %
+      images.length;
+
+    flatListRefs.current[itemId]?.scrollToIndex({ index: newIndex });
+    setCurrentImageIndex((prev) => ({ ...prev, [itemId]: newIndex }));
   };
 
   if (loading)
@@ -130,105 +183,165 @@ export default function AnnouncementPage() {
     );
 
   return (
-    <View style={styles.container} edges={["top"]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Image
-          source={{ uri: "https://i.ibb.co/KZX7R8C/pru-square.png" }}
-          style={styles.headerLogo}
-        />
-        <Text style={styles.headerTitle}>Welcome to PruLife UK!</Text>
-      </View>
-
-      {/* Feed */}
+    <SafeAreaView style={styles.container} edges={["bottom"]}>
       <FlatList
         data={announcements}
         keyExtractor={(item) => item.id}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 16, paddingBottom: 30 }}
-        renderItem={({ item }) => (
-          <View style={styles.postCard}>
-            {/* Post Header */}
-            <View style={styles.postHeader}>
-              <Ionicons name="person-circle" size={42} color="#b30f1c" />
-              <View style={{ marginLeft: 10, flex: 1 }}>
-                <Text style={styles.postAuthor}>{item.author}</Text>
-                <Text style={styles.postDate}>Official Announcement</Text>
+        contentContainerStyle={{ paddingBottom: 30 }}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        renderItem={({ item }) => {
+          const likedByUser = likes[item.id]?.some(
+            (l) => l.userId === auth.currentUser?.uid
+          );
+
+          return (
+            <View style={styles.postCard}>
+              {/* Header */}
+              <View style={styles.postHeader}>
+                <Ionicons name="person-circle" size={42} color="#b30f1c" />
+                <View style={{ marginLeft: 10, flex: 1 }}>
+                  <Text style={styles.postAuthor}>{item.author}</Text>
+                  <Text style={styles.postDate}>Official Announcement</Text>
+                </View>
+                <Ionicons name="ellipsis-horizontal" size={20} color="#555" />
               </View>
-              <Ionicons name="ellipsis-horizontal" size={20} color="#555" />
-            </View>
 
-            {/* Post Image */}
-            {item.thumb && (
-              <Image source={{ uri: item.thumb }} style={styles.postImage} />
-            )}
+              {/* Images */}
+              {item.images?.length > 0 && (
+                <Pressable
+                  onPress={() => handleDoubleTap(item)}
+                  style={{ position: "relative" }}
+                >
+                  <FlatList
+                    ref={(ref) => (flatListRefs.current[item.id] = ref)}
+                    data={item.images}
+                    horizontal
+                    pagingEnabled
+                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(_, index) => index.toString()}
+                    onMomentumScrollEnd={(e) => {
+                      const index = Math.round(
+                        e.nativeEvent.contentOffset.x / SCREEN_WIDTH
+                      );
+                      setCurrentImageIndex((prev) => ({
+                        ...prev,
+                        [item.id]: index,
+                      }));
+                    }}
+                    renderItem={({ item: img }) => (
+                      <View
+                        style={{ width: SCREEN_WIDTH, alignItems: "center" }}
+                      >
+                        <Image source={{ uri: img }} style={styles.postImage} />
+                        <LinearGradient
+                          colors={["transparent", "rgba(0,0,0,0.25)"]}
+                          style={styles.imageOverlay}
+                        />
+                        {doubleTapHeart[item.id] && (
+                          <Animatable.View
+                            animation="zoomIn"
+                            duration={500}
+                            style={styles.heartOverlay}
+                          >
+                            <Ionicons name="heart" size={80} color="#fff" />
+                          </Animatable.View>
+                        )}
+                      </View>
+                    )}
+                  />
+                  {item.images.length > 1 && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.navButton, { left: 8 }]}
+                        onPress={() => scrollImage(item.id, -1)}
+                      >
+                        <Ionicons name="chevron-back" size={28} color="#fff" />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.navButton, { right: 8 }]}
+                        onPress={() => scrollImage(item.id, 1)}
+                      >
+                        <Ionicons
+                          name="chevron-forward"
+                          size={28}
+                          color="#fff"
+                        />
+                      </TouchableOpacity>
+                      <View style={styles.dotContainer}>
+                        {item.images.map((_, i) => (
+                          <View
+                            key={i}
+                            style={[
+                              styles.dot,
+                              i === (currentImageIndex[item.id] || 0) &&
+                                styles.activeDot,
+                            ]}
+                          />
+                        ))}
+                      </View>
+                    </>
+                  )}
+                </Pressable>
+              )}
 
-            {/* Post Content */}
-            <View style={styles.postContent}>
-              <Text style={styles.postTitle}>{item.title}</Text>
-              <Text style={styles.postText} numberOfLines={3}>
-                {item.content}
-              </Text>
-            </View>
+              {/* Content */}
+              <View style={styles.postContent}>
+                <Text style={styles.likesCount}>
+                  {likes[item.id]?.length ?? 0} likes
+                </Text>
+                <Text style={styles.postText} numberOfLines={3}>
+                  <Text style={styles.postTextBold}>{item.author} </Text>
+                  <Text style={styles.postTextMuted}>{item.content}</Text>
+                </Text>
+                <Pressable onPress={() => setSelected(item)}>
+                  {comments.length > 0 && (
+                    <Text style={styles.viewComments}>
+                      View all {comments.length} comments
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
 
-            {/* Reactions Row */}
-            <View style={styles.reactionRow}>
-              <Pressable
-                onPress={() => toggleLike(item)}
-                style={({ pressed }) => [
-                  styles.reactionButton,
-                  pressed && { opacity: 0.6 },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    likes[item.id]?.some(
-                      (l) => l.userId === auth.currentUser?.uid
-                    )
-                      ? "heart"
-                      : "heart-outline"
-                  }
-                  size={22}
-                  color={
-                    likes[item.id]?.some(
-                      (l) => l.userId === auth.currentUser?.uid
-                    )
-                      ? "#b30f1c"
-                      : "#555"
-                  }
-                />
-                <Text
-                  style={[
-                    styles.reactionText,
-                    likes[item.id]?.some(
-                      (l) => l.userId === auth.currentUser?.uid
-                    ) && { color: "#b30f1c" },
+              {/* Reactions */}
+              <View style={styles.reactionRow}>
+                <Pressable
+                  onPress={() => toggleLike(item)}
+                  style={({ pressed }) => [
+                    styles.reactionButton,
+                    pressed && { opacity: 0.6 },
                   ]}
                 >
-                  {likes[item.id]?.length ?? 0}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                onPress={() => setSelected(item)}
-                style={({ pressed }) => [
-                  styles.reactionButton,
-                  pressed && { opacity: 0.6 },
-                ]}
-              >
-                <Ionicons name="chatbubble-outline" size={21} color="#555" />
-                <Text style={styles.reactionText}>Comment</Text>
-              </Pressable>
+                  <Ionicons
+                    name={likedByUser ? "heart" : "heart-outline"}
+                    size={22}
+                    color={likedByUser ? "#b30f1c" : "#555"}
+                  />
+                </Pressable>
+                <Pressable
+                  onPress={() => setSelected(item)}
+                  style={({ pressed }) => [
+                    styles.reactionButton,
+                    pressed && { opacity: 0.6 },
+                  ]}
+                >
+                  <Ionicons name="chatbubble-outline" size={22} color="#555" />
+                </Pressable>
+                <Pressable style={styles.reactionButton}>
+                  <Ionicons name="bookmark-outline" size={22} color="#555" />
+                </Pressable>
+              </View>
             </View>
-          </View>
-        )}
+          );
+        }}
       />
 
-      {/* Custom Modal Overlay */}
+      {/* Comment Modal */}
       {selected && (
-        <Animated.View style={[styles.modalBackdrop, { opacity: fadeAnim }]}>
+        <View style={styles.modalBackdrop}>
           <View style={styles.modalContent}>
-            {/* Modal Header */}
             <View style={styles.modalHeader}>
               <Text style={styles.modalHeaderTitle}>Announcement</Text>
               <TouchableOpacity onPress={closeModal} style={styles.modalClose}>
@@ -239,24 +352,40 @@ export default function AnnouncementPage() {
             <ScrollView
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 20 }}
+              ref={(ref) => (flatListRefs.current["comments"] = ref)}
               keyboardShouldPersistTaps="handled"
             >
-              {/* Announcement Image */}
-              {selected?.image && (
-                <Image
-                  source={{ uri: selected.image }}
-                  style={styles.modalImage}
-                  resizeMode="cover"
+              {selected.images?.length > 0 && (
+                <FlatList
+                  ref={(ref) => (flatListRefs.current[selected.id] = ref)}
+                  data={selected.images}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  keyExtractor={(_, index) => index.toString()}
+                  onMomentumScrollEnd={(e) => {
+                    const index = Math.round(
+                      e.nativeEvent.contentOffset.x / SCREEN_WIDTH
+                    );
+                    setCurrentImageIndex((prev) => ({
+                      ...prev,
+                      [selected.id]: index,
+                    }));
+                  }}
+                  renderItem={({ item: img }) => (
+                    <Image
+                      source={{ uri: img }}
+                      style={[styles.modalImage, { width: SCREEN_WIDTH - 40 }]}
+                    />
+                  )}
                 />
               )}
 
-              {/* Announcement Content */}
               <View style={styles.modalTextContainer}>
-                <Text style={styles.modalTitle}>{selected?.title}</Text>
-                <Text style={styles.modalBody}>{selected?.content}</Text>
+                <Text style={styles.modalTitle}>{selected.title}</Text>
+                <Text style={styles.modalBody}>{selected.content}</Text>
               </View>
 
-              {/* Comments */}
               <View style={styles.commentSection}>
                 <Text style={styles.commentHeader}>Comments</Text>
                 {comments.length === 0 ? (
@@ -283,7 +412,6 @@ export default function AnnouncementPage() {
               </View>
             </ScrollView>
 
-            {/* Input Row */}
             <View style={styles.commentInputContainer}>
               <TextInput
                 placeholder="Write a comment..."
@@ -306,9 +434,9 @@ export default function AnnouncementPage() {
               </TouchableOpacity>
             </View>
           </View>
-        </Animated.View>
+        </View>
       )}
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -316,72 +444,74 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f0f2f5" },
   loaderContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
 
-  /* Header */
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fff",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "#ddd",
-    elevation: 3,
-  },
-  headerLogo: { width: 40, height: 40, borderRadius: 8, marginRight: 8 },
-  headerTitle: { fontSize: 20, fontWeight: "700", color: "#b30f1c" },
-
-  /* Post Card */
   postCard: {
     backgroundColor: "#fff",
     marginVertical: 8,
-    borderRadius: 10,
+    borderRadius: 12,
     shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
+    overflow: "hidden",
   },
-  postHeader: {
-    flexDirection: "row",
+  postHeader: { flexDirection: "row", alignItems: "center", padding: 12 },
+  postAuthor: { fontWeight: "800", fontSize: 16, color: "#222" },
+  postDate: { fontSize: 12, color: "#888", marginTop: 2 },
+  postContent: { paddingHorizontal: 12, paddingBottom: 12 },
+  postText: { fontSize: 14, color: "#333", textAlign: "justify" },
+  postTextBold: { fontWeight: "700", color: "#222" },
+  postTextMuted: { color: "#555" },
+  likesCount: { fontWeight: "700", marginBottom: 4, color: "#b30f1c" },
+  viewComments: { color: "#888", marginTop: 4 },
+
+  postImage: { width: SCREEN_WIDTH, height: SCREEN_WIDTH, resizeMode: "cover" },
+  imageOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+  },
+  heartOverlay: {
+    position: "absolute",
+    top: "40%",
+    left: "40%",
+    justifyContent: "center",
     alignItems: "center",
-    padding: 10,
-    borderBottomColor: "#eee",
-    borderBottomWidth: 1,
-  },
-  postContent: { padding: 12 },
-  postAuthor: { fontWeight: "600", fontSize: 15, color: "#222" },
-  postDate: { fontSize: 12, color: "#888" },
-  postImage: { width: "100%", height: 220 },
-  postTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    marginBottom: 4,
-    color: "#111",
-  },
-  postText: {
-    fontSize: 14,
-    color: "#333",
-    marginBottom: 10,
-    textAlign: "justify",
   },
 
   reactionRow: {
     flexDirection: "row",
-    alignItems: "center",
-    borderTopColor: "#eee",
+    padding: 10,
     borderTopWidth: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    justifyContent: "flex-start",
+    borderTopColor: "#eee",
   },
-  reactionButton: {
+  reactionButton: { marginRight: 16 },
+  navButton: {
+    position: "absolute",
+    top: "40%",
+    backgroundColor: "rgba(0,0,0,0.4)",
+    padding: 6,
+    borderRadius: 20,
+    zIndex: 10,
+  },
+  dotContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    marginRight: 20,
+    justifyContent: "center",
+    position: "absolute",
+    bottom: 10,
+    width: "100%",
   },
-  reactionText: { fontSize: 14, marginLeft: 4, color: "#555" },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#888",
+    marginHorizontal: 3,
+  },
+  activeDot: { backgroundColor: "#fff" },
 
-  /* Modal */
   modalBackdrop: {
     position: "absolute",
     top: 0,
@@ -391,13 +521,12 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 999,
   },
   modalContent: {
     backgroundColor: "#fff",
-    borderRadius: 10,
-    maxWidth: "85%",
+    width: "90%",
     maxHeight: "85%",
+    borderRadius: 12,
     overflow: "hidden",
   },
   modalClose: {
@@ -412,61 +541,22 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
     padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
-    backgroundColor: "#fff",
-    zIndex: 10,
   },
-  modalBody: { textAlign: "justify" },
-  modalHeaderTitle: { fontSize: 18, fontWeight: "700", color: "#b30f1c" },
+  modalHeaderTitle: { fontSize: 18, fontWeight: "800", color: "#b30f1c" },
   modalTextContainer: { paddingHorizontal: 16, paddingVertical: 12 },
-  modalImage: {
-    width: "90%",
-    height: 220,
-    alignSelf: "center",
-    borderRadius: 12,
-    marginTop: 10,
-    marginBottom: 12,
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 8,
+    color: "#222",
   },
-  commentCard: {
-    backgroundColor: "#f0f2f5",
-    padding: 8,
-    borderRadius: 12,
-    marginLeft: 10,
-    flex: 1,
-  },
-  commentInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-    backgroundColor: "#fff",
-  },
-  commentInput: {
-    flex: 1,
-    backgroundColor: "#f0f2f5",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    fontSize: 14,
-    maxHeight: 80,
-  },
-  commentPostBtn: {
-    backgroundColor: "#b30f1c",
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    marginLeft: 6,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  modalBody: { fontSize: 14, textAlign: "justify", color: "#555" },
+  modalImage: { height: 220, marginVertical: 10},
 
-  /* Comments */
   commentSection: {
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -493,5 +583,40 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 8,
     marginTop: 4,
+  },
+  commentCard: {
+    backgroundColor: "#f0f2f5",
+    padding: 8,
+    borderRadius: 12,
+    marginLeft: 10,
+    flex: 1,
+  },
+
+  commentInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+    backgroundColor: "#fff",
+  },
+  commentInput: {
+    flex: 1,
+    backgroundColor: "#f0f2f5",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    fontSize: 14,
+    maxHeight: 80,
+  },
+  commentPostBtn: {
+    backgroundColor: "#b30f1c",
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginLeft: 6,
+    justifyContent: "center",
+    alignItems: "center",
   },
 });
